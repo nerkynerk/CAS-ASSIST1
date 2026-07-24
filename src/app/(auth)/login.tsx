@@ -147,7 +147,7 @@ export default function LoginScreen() {
           {/* ── Footer ───────────────────────────────── */}
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: theme.textSecondary }]}>
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
             </Text>
             <Link href="/(auth)/register" asChild>
               <Pressable>

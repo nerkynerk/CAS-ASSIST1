@@ -82,11 +82,13 @@ export default function ChatbotScreen() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
+  const nextMessageId = useRef(0);
 
   const studentId = profile?.id ?? session?.user.id ?? '';
 
   function addMessage(msg: Omit<Message, 'id'>) {
-    const newMsg: Message = { ...msg, id: `${Date.now()}-${Math.random()}` };
+    nextMessageId.current += 1;
+    const newMsg: Message = { ...msg, id: `message-${nextMessageId.current}` };
     setMessages(prev => {
       const next = [...prev, newMsg];
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);

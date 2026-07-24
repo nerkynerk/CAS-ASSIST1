@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
+const BASE = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '');
+const REQUEST_TIMEOUT_MS = 12_000;
 
 async function getToken(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -8,15 +9,29 @@ async function getToken(): Promise<string | null> {
 }
 
 export async function apiPost<T = unknown>(path: string, body: unknown): Promise<T> {
+  if (!BASE) {
+    throw new Error('This optional service is not configured.');
+  }
+
   const token = await getToken();
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? `Request failed: ${res.status}`);

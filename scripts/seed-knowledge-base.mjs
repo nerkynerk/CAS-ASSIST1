@@ -13,17 +13,19 @@ import OpenAI from 'openai';
 // ── Config ────────────────────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SECRET_KEY =
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const EMBEDDING_MODEL   = 'text-embedding-ada-002';
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
+if (!SUPABASE_URL || !SUPABASE_SECRET_KEY || !OPENAI_API_KEY) {
   throw new Error(
-    'SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and OPENAI_API_KEY are required.'
+    'SUPABASE_URL, SUPABASE_SECRET_KEY, and OPENAI_API_KEY are required.'
   );
 }
 
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
   auth: { persistSession: false },
 });
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });

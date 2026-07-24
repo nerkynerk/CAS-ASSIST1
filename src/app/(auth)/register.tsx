@@ -18,7 +18,6 @@ import { useTheme } from '@/hooks/use-theme';
 
 const PRIMARY = '#208AEF';
 const ERROR   = '#DC2626';
-const SUCCESS  = '#16A34A';
 
 export default function RegisterScreen() {
   const theme  = useTheme();
