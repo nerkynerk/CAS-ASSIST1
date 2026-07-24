@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.daviddino.casassist",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -20,7 +21,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "single-page",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -39,6 +40,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2e1e85ce-3ff4-4ad1-81b0-5cd920ae1cd0"
+      }
+    },
+    "owner": "nerkynerk"
   }
 }

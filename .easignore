@@ -1,0 +1,14 @@
+.git
+node_modules
+**/node_modules
+.expo
+**/.expo
+.env
+.env.*
+*.jks
+*.keystore
+.cursor
+.claude
+.agents
+.vscode
+client-broken

@@ -12,15 +12,15 @@ import OpenAI from 'openai';
 
 // ── Config ────────────────────────────────────────────────────
 
-const SUPABASE_URL      = 'https://rueukwztuflgpuvopmlu.supabase.co';
-const SERVICE_ROLE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1ZXVrd3p0dWZsZ3B1dm9wbWx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDI3OTY2MSwiZXhwIjoyMDk1ODU1NjYxfQ.pMeLyuRFibatYxu-xpdNGEX4sQJ2udnOOYJyQOKIKnQ';
-const OPENAI_API_KEY    = process.env.OPENAI_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const EMBEDDING_MODEL   = 'text-embedding-ada-002';
 
-if (!OPENAI_API_KEY) {
-  console.error('❌  OPENAI_API_KEY environment variable is required.');
-  console.error('    Run: OPENAI_API_KEY=sk-... node scripts/seed-knowledge-base.mjs');
-  process.exit(1);
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
+  throw new Error(
+    'SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and OPENAI_API_KEY are required.'
+  );
 }
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
