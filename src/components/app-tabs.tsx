@@ -1,86 +1,83 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+import { Tabs } from 'expo-router';
+import { useColorScheme, type ColorValue } from 'react-native';
 
+import { AcademicIcon, type AcademicIconName } from '@/components/ui/academic-ui';
 import { useAuth } from '@/context/auth';
 import { BrandColors, Colors } from '@/constants/theme';
 
 const PRIMARY = BrandColors.primary;
-type TabIconSource = { default: string; selected: string };
 
-function Tab({
-  name,
-  label,
-  sf,
-  md,
-}: {
-  name: string;
-  label: string;
-  sf: TabIconSource;
-  md: TabIconSource;
-}) {
-  return (
-    <NativeTabs.Trigger name={name}>
-      <NativeTabs.Trigger.Icon sf={sf as never} md={md as never} />
-      <NativeTabs.Trigger.Label>{label}</NativeTabs.Trigger.Label>
-    </NativeTabs.Trigger>
-  );
+function tabIcon(name: AcademicIconName) {
+  return function TabBarIcon({ color, size }: { color: ColorValue; size: number }) {
+    return (
+      <AcademicIcon name={name} color={String(color)} size={size} />
+    );
+  };
 }
 
 export default function AppTabs() {
-  const scheme  = useColorScheme();
-  const colors  = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
   const { profile } = useAuth();
-
-  const role = profile?.role ?? 'student';
+  const role = profile?.role;
   const isStudent = role === 'student';
   const isFaculty = role === 'faculty';
   const isStaff = role === 'staff';
   const isSuperAdmin = role === 'super_admin';
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={PRIMARY}
-      iconColor={{ default: colors.textSecondary, selected: PRIMARY }}
-      labelStyle={{ selected: { color: PRIMARY } }}>
-      <Tab
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: PRIMARY,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarHideOnKeyboard: true,
+        tabBarStyle: { backgroundColor: colors.background },
+      }}>
+      <Tabs.Screen
         name="index"
-        label={isStudent ? 'Home' : isFaculty ? 'Dashboard' : isStaff ? 'Operations' : 'Overview'}
-        sf={{ default: 'house', selected: 'house.fill' }}
-        md={{ default: 'home', selected: 'home' }}
+        options={{
+          title: isStudent ? 'Home' : isFaculty ? 'Dashboard' : isStaff ? 'Operations' : 'Overview',
+          tabBarIcon: tabIcon({ ios: 'house.fill', android: 'home', web: 'home' }),
+        }}
       />
 
-      {(isStaff || isSuperAdmin) && (
-        <Tab
+      <Tabs.Protected guard={isStaff || isSuperAdmin}>
+        <Tabs.Screen
           name="admin"
-          label={isStaff ? 'Queue' : 'Management'}
-          sf={{ default: 'briefcase', selected: 'briefcase.fill' }}
-          md={{ default: 'work', selected: 'work' }}
+          options={{
+            title: isStaff ? 'Queue' : 'Management',
+            tabBarIcon: tabIcon({ ios: 'briefcase.fill', android: 'work', web: 'work' }),
+          }}
         />
-      )}
+      </Tabs.Protected>
 
-      {(isStudent || isFaculty) && (
-        <Tab
+      <Tabs.Protected guard={isStudent || isFaculty}>
+        <Tabs.Screen
           name="tickets"
-          label={isStudent ? 'Requests' : 'Advising'}
-          sf={{ default: 'doc.text', selected: 'doc.text.fill' }}
-          md={{ default: 'assignment', selected: 'assignment' }}
+          options={{
+            title: isStudent ? 'Requests' : 'Advising',
+            tabBarIcon: tabIcon({ ios: 'doc.text.fill', android: 'assignment', web: 'assignment' }),
+          }}
         />
-      )}
+      </Tabs.Protected>
 
-      <Tab
+      <Tabs.Screen
         name="explore"
-        label="Updates"
-        sf={{ default: 'bell', selected: 'bell.fill' }}
-        md={{ default: 'notifications', selected: 'notifications' }}
+        options={{
+          title: 'Updates',
+          tabBarIcon: tabIcon({ ios: 'bell.fill', android: 'notifications', web: 'notifications' }),
+        }}
       />
-
-      <Tab
+      <Tabs.Screen
         name="profile"
-        label="Profile"
-        sf={{ default: 'person', selected: 'person.fill' }}
-        md={{ default: 'person_outline', selected: 'person' }}
+        options={{
+          title: 'Profile',
+          tabBarIcon: tabIcon({ ios: 'person.fill', android: 'person', web: 'person' }),
+        }}
       />
-    </NativeTabs>
+      <Tabs.Screen name="chatbot" options={{ href: null }} />
+      <Tabs.Screen name="documents" options={{ href: null }} />
+    </Tabs>
   );
 }

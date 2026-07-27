@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function LoginScreen({ onNavigateToRegister }: Props) {
-  const { signIn } = useAuth();
+  const { signIn, profileError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -50,10 +50,11 @@ export default function LoginScreen({ onNavigateToRegister }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}>
           <View style={styles.brand}>
             <View style={styles.logo}>
@@ -72,9 +73,9 @@ export default function LoginScreen({ onNavigateToRegister }: Props) {
             <Text style={styles.formTitle}>Sign in</Text>
             <Text style={styles.formSub}>Use your institutional account to continue.</Text>
 
-            {error ? (
+            {error || profileError ? (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>{error ?? profileError}</Text>
               </View>
             ) : null}
 

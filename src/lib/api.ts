@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '');
+const configuredBase = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
+const BASE = configuredBase && configuredBase !== 'disabled' ? configuredBase : undefined;
 const REQUEST_TIMEOUT_MS = 12_000;
 
 async function getToken(): Promise<string | null> {

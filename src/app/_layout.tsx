@@ -1,11 +1,13 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useState } from 'react';
-import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, useColorScheme, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import AuthenticatedErrorBoundary from '@/components/authenticated-error-boundary';
 import LoginScreen from '@/components/auth/login-screen';
 import RegisterScreen from '@/components/auth/register-screen';
+import { Academic } from '@/components/ui/academic-ui';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 
@@ -14,7 +16,14 @@ type AuthView = 'login' | 'register';
 const styles = StyleSheet.create({
   // Must be above AnimatedSplashOverlay (zIndex 1000) on native,
   // and above everything on web.
-  overlay: { zIndex: 1001, elevation: 1001 },
+  authContainer: { flex: 1, backgroundColor: Academic.background },
+  loading: {
+    zIndex: 1001,
+    elevation: 1001,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Academic.background,
+  },
 });
 
 // ── Auth overlay ──────────────────────────────────────────────
@@ -29,16 +38,31 @@ function PushSetup() {
   return null;
 }
 
-function AuthOverlay() {
-  const { session, isLoading } = useAuth();
+function AppGate() {
+  const { session, profile, isLoading, isProfileLoading, signOut } = useAuth();
   const [authView, setAuthView] = useState<AuthView>('login');
 
   // While restoring the session from storage, show nothing —
   // the AnimatedSplashOverlay above handles the loading moment.
-  if (isLoading || session) return null;
+  if (isLoading || isProfileLoading) {
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.loading]}>
+        <ActivityIndicator size="large" color={Academic.primary} />
+      </View>
+    );
+  }
+
+  if (session && profile) {
+    return (
+      <AuthenticatedErrorBoundary onSignOut={signOut}>
+        <AppTabs />
+        <PushSetup />
+      </AuthenticatedErrorBoundary>
+    );
+  }
 
   return (
-    <View style={[StyleSheet.absoluteFill, styles.overlay]}>
+    <View style={styles.authContainer}>
       {authView === 'login' ? (
         <LoginScreen onNavigateToRegister={() => setAuthView('register')} />
       ) : (
@@ -56,10 +80,8 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AppTabs />
+        <AppGate />
         {Platform.OS !== 'web' && <AnimatedSplashOverlay />}
-        <PushSetup />
-        <AuthOverlay />
       </ThemeProvider>
     </AuthProvider>
   );
