@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/academic-ui';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import RoleGuard from '@/components/role-guard';
 import { supabase } from '@/lib/supabase';
 
 interface DocumentRequest {
@@ -106,7 +107,7 @@ function RequestCard({ item }: { item: DocumentRequest }) {
   );
 }
 
-export default function DocumentsScreen() {
+function DocumentsScreenContent() {
   const { profile, session } = useAuth();
   const [view, setView] = useState<ScreenView>('list');
   const [requests, setRequests] = useState<DocumentRequest[]>([]);
@@ -168,7 +169,10 @@ export default function DocumentsScreen() {
   if (view === 'new') {
     return (
       <SafeAreaView style={styles.safe}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={styles.scroll}>
           <View style={styles.pageHeader}>
             <IconButton
               icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
@@ -273,6 +277,14 @@ export default function DocumentsScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function DocumentsScreen() {
+  return (
+    <RoleGuard allowed={['student']}>
+      <DocumentsScreenContent />
+    </RoleGuard>
   );
 }
 

@@ -137,16 +137,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    void supabase.auth.getSession().then(async ({ data: { session: restoredSession }, error }) => {
-      if (!active) return;
-      if (error || !restoredSession) {
+    void supabase.auth.getSession()
+      .then(async ({ data: { session: restoredSession }, error }) => {
+        if (!active) return;
+        if (error || !restoredSession) {
+          setSession(null);
+          setProfile(null);
+        } else {
+          await loadAuthenticatedProfile(restoredSession);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
         setSession(null);
         setProfile(null);
-      } else {
-        await loadAuthenticatedProfile(restoredSession);
-      }
-      if (active) setIsLoading(false);
-    });
+        setProfileError('CAS Assist could not restore your session. Check your connection and sign in again.');
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
 
     const {
       data: { subscription },

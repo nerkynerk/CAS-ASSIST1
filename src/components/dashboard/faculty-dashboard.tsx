@@ -228,7 +228,10 @@ export default function FacultyDashboard() {
   if (view === 'room-change') {
     return (
       <SafeAreaView style={styles.safe}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={styles.scroll}>
           <View style={styles.formHeader}>
             <IconButton
               icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}

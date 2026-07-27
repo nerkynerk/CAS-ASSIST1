@@ -285,7 +285,10 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
   }
 
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.subScroll}>
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      contentContainerStyle={styles.subScroll}>
       {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
       {success ? <View style={styles.successBox}><Text style={styles.successText}>Announcement posted successfully.</Text></View> : null}
 

@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/academic-ui';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import RoleGuard from '@/components/role-guard';
 import { supabase } from '@/lib/supabase';
 
 const EXEC_E = (5 + 45 + 15) / 3;
@@ -242,7 +243,10 @@ function NewTicketForm({
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={styles.scroll}>
         <View style={styles.pageHeader}>
           <IconButton
             icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
@@ -304,7 +308,7 @@ function NewTicketForm({
   );
 }
 
-export default function TicketsScreen() {
+function TicketsScreenContent() {
   const { profile, session } = useAuth();
   const [view, setView] = useState<ScreenView>('list');
   const [filter, setFilter] = useState<RequestFilter>('active');
@@ -451,6 +455,14 @@ export default function TicketsScreen() {
       </ScrollView>
       <FloatingChatButton />
     </SafeAreaView>
+  );
+}
+
+export default function TicketsScreen() {
+  return (
+    <RoleGuard allowed={['student']}>
+      <TicketsScreenContent />
+    </RoleGuard>
   );
 }
 

@@ -35,10 +35,10 @@ export default function AppTabs() {
               </TabButton>
             </TabTrigger>
           )}
-          {(isStudent || isFaculty) && (
+          {isStudent && (
             <TabTrigger name="tickets" href="/tickets" asChild>
               <TabButton icon={{ ios: 'doc.text', android: 'assignment', web: 'assignment' }}>
-                {isStudent ? 'Requests' : 'Advising'}
+                Requests
               </TabButton>
             </TabTrigger>
           )}

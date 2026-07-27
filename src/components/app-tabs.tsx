@@ -52,11 +52,11 @@ export default function AppTabs() {
         />
       </Tabs.Protected>
 
-      <Tabs.Protected guard={isStudent || isFaculty}>
+      <Tabs.Protected guard={isStudent}>
         <Tabs.Screen
           name="tickets"
           options={{
-            title: isStudent ? 'Requests' : 'Advising',
+            title: 'Requests',
             tabBarIcon: tabIcon({ ios: 'doc.text.fill', android: 'assignment', web: 'assignment' }),
           }}
         />
@@ -76,8 +76,10 @@ export default function AppTabs() {
           tabBarIcon: tabIcon({ ios: 'person.fill', android: 'person', web: 'person' }),
         }}
       />
-      <Tabs.Screen name="chatbot" options={{ href: null }} />
-      <Tabs.Screen name="documents" options={{ href: null }} />
+      <Tabs.Protected guard={isStudent}>
+        <Tabs.Screen name="chatbot" options={{ href: null }} />
+        <Tabs.Screen name="documents" options={{ href: null }} />
+      </Tabs.Protected>
     </Tabs>
   );
 }

@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Academic, AcademicIcon, IconButton, StatusBadge } from '@/components/ui/academic-ui';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import RoleGuard from '@/components/role-guard';
 import { apiPost } from '@/lib/api';
 
 type MessageRole = 'user' | 'assistant' | 'system';
@@ -75,7 +76,7 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
-export default function ChatbotScreen() {
+function ChatbotScreenContent() {
   const router = useRouter();
   const { profile, session } = useAuth();
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
@@ -240,6 +241,14 @@ export default function ChatbotScreen() {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+export default function ChatbotScreen() {
+  return (
+    <RoleGuard allowed={['student']}>
+      <ChatbotScreenContent />
+    </RoleGuard>
   );
 }
 
