@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,7 @@ import {
   StatusBadge,
   SurfaceCard,
 } from '@/components/ui/academic-ui';
-import { Spacing } from '@/constants/theme';
+import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { type ThemePreference, useAppTheme } from '@/context/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -54,6 +55,8 @@ export default function ProfileScreen() {
   const { profile, signOut } = useAuth();
   const { preference, setPreference } = useAppTheme();
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const wideLayout = width >= 900;
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [saving, setSaving] = useState(false);
@@ -103,10 +106,14 @@ export default function ProfileScreen() {
             <Text style={styles.displayName}>{profile?.display_name ?? 'No name set'}</Text>
           ) : (
             <TextInput
-              style={[styles.nameInput, { color: theme.text, backgroundColor: theme.muted }]}
+              style={[
+                styles.nameInput,
+                { color: theme.text, backgroundColor: theme.muted, borderColor: theme.border },
+              ]}
               value={displayName}
               onChangeText={setDisplayName}
               autoFocus
+              selectTextOnFocus
               maxLength={60}
               placeholder="Display name"
               placeholderTextColor={Academic.textSecondary}
@@ -124,64 +131,70 @@ export default function ProfileScreen() {
         {saveError ? <View style={styles.errorBox}><Text style={styles.errorText}>{saveError}</Text></View> : null}
         {saveSuccess ? <View style={styles.successBox}><Text style={styles.successText}>Profile updated successfully.</Text></View> : null}
 
-        <SectionHeader title="Account" />
-        <SurfaceCard style={styles.infoCard}>
-          <InfoRow icon={{ ios: 'envelope', android: 'mail', web: 'mail' }} label="Email" value={profile?.email ?? '-'} />
-          {role === 'student' ? (
-            <>
+        <View style={[styles.sectionGrid, wideLayout && styles.sectionGridWide]}>
+          <View style={styles.sectionColumn}>
+            <SectionHeader title="Account" />
+            <SurfaceCard style={styles.infoCard}>
+              <InfoRow icon={{ ios: 'envelope', android: 'mail', web: 'mail' }} label="Email" value={profile?.email ?? '-'} />
+              {role === 'student' ? (
+                <>
+                  <View style={[styles.separator, { backgroundColor: theme.border }]} />
+                  <InfoRow
+                    icon={{ ios: 'number', android: 'badge', web: 'badge' }}
+                    label="Student Number"
+                    value={profile?.student_number ?? 'Not recorded'}
+                  />
+                </>
+              ) : null}
+              <View style={[styles.separator, { backgroundColor: theme.border }]} />
+              <InfoRow icon={{ ios: 'person.badge.key', android: 'badge', web: 'badge' }} label="Role" value={ROLE_LABEL[role] ?? role} />
               <View style={[styles.separator, { backgroundColor: theme.border }]} />
               <InfoRow
-                icon={{ ios: 'number', android: 'badge', web: 'badge' }}
-                label="Student Number"
-                value={profile?.student_number ?? 'Not recorded'}
+                icon={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }}
+                label="Status"
+                value={profile?.state === 'archived_read_only' ? 'Archived read-only' : 'Active'}
               />
-            </>
-          ) : null}
-          <View style={[styles.separator, { backgroundColor: theme.border }]} />
-          <InfoRow icon={{ ios: 'person.badge.key', android: 'badge', web: 'badge' }} label="Role" value={ROLE_LABEL[role] ?? role} />
-          <View style={[styles.separator, { backgroundColor: theme.border }]} />
-          <InfoRow
-            icon={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }}
-            label="Status"
-            value={profile?.state === 'archived_read_only' ? 'Archived read-only' : 'Active'}
-          />
-        </SurfaceCard>
+            </SurfaceCard>
+          </View>
 
-        <SectionHeader title="Appearance" />
-        <SurfaceCard style={styles.appearanceCard}>
-          {THEME_OPTIONS.map((option, index) => {
-            const selected = preference === option.value;
-            return (
-              <View key={option.value}>
-                {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-                <Pressable
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selected }}
-                  onPress={() => setPreference(option.value)}
-                  style={({ pressed }) => [
-                    styles.themeOption,
-                    selected && { backgroundColor: Academic.softBlue },
-                    pressed && styles.pressed,
-                  ]}>
-                  <View style={[styles.themeIcon, { backgroundColor: selected ? Academic.softBlue : Academic.muted }]}>
-                    <AcademicIcon name={option.icon} color={selected ? Academic.primary : Academic.textSecondary} size={20} />
+          <View style={styles.sectionColumn}>
+            <SectionHeader title="Appearance" />
+            <SurfaceCard style={styles.appearanceCard}>
+              {THEME_OPTIONS.map((option, index) => {
+                const selected = preference === option.value;
+                return (
+                  <View key={option.value}>
+                    {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
+                    <Pressable
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                      onPress={() => setPreference(option.value)}
+                      style={({ pressed }) => [
+                        styles.themeOption,
+                        selected && { backgroundColor: Academic.softBlue },
+                        pressed && styles.pressed,
+                      ]}>
+                      <View style={[styles.themeIcon, { backgroundColor: selected ? Academic.softBlue : Academic.muted }]}>
+                        <AcademicIcon name={option.icon} color={selected ? Academic.primary : Academic.textSecondary} size={20} />
+                      </View>
+                      <View style={styles.themeCopy}>
+                        <Text style={styles.themeLabel}>{option.label}</Text>
+                        <Text style={styles.themeDescription}>{option.description}</Text>
+                      </View>
+                      <AcademicIcon
+                        name={selected
+                          ? { ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }
+                          : { ios: 'circle', android: 'radio_button_unchecked', web: 'radio_button_unchecked' }}
+                        color={selected ? Academic.primary : Academic.textSecondary}
+                        size={21}
+                      />
+                    </Pressable>
                   </View>
-                  <View style={styles.themeCopy}>
-                    <Text style={styles.themeLabel}>{option.label}</Text>
-                    <Text style={styles.themeDescription}>{option.description}</Text>
-                  </View>
-                  <AcademicIcon
-                    name={selected
-                      ? { ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }
-                      : { ios: 'circle', android: 'radio_button_unchecked', web: 'radio_button_unchecked' }}
-                    color={selected ? Academic.primary : Academic.textSecondary}
-                    size={21}
-                  />
-                </Pressable>
-              </View>
-            );
-          })}
-        </SurfaceCard>
+                );
+              })}
+            </SurfaceCard>
+          </View>
+        </View>
 
         <SectionHeader title="Institution" />
         <SurfaceCard style={styles.infoCard}>
@@ -244,7 +257,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Academic.background },
   scroll: {
     width: '100%',
-    maxWidth: 760,
+    maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
     paddingBottom: 128,
@@ -266,12 +279,17 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 14,
     paddingHorizontal: 14,
+    borderWidth: 1,
     color: Academic.navy,
     backgroundColor: Academic.muted,
+    fontFamily: Fonts.sans,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  sectionGrid: { gap: Spacing.three },
+  sectionGridWide: { flexDirection: 'row', alignItems: 'stretch' },
+  sectionColumn: { flex: 1, gap: Spacing.two, minWidth: 0 },
   infoCard: { paddingVertical: 4 },
   appearanceCard: { padding: 6 },
   themeOption: {

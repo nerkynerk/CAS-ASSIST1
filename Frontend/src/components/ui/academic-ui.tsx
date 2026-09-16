@@ -291,8 +291,8 @@ export function SurfaceCard({
   ];
 
   return (
-    <Animated.View entering={CARD_ENTERING} style={cardStyle}>
-      {isLiquidGlassAvailable() ? (
+    <Animated.View entering={process.env.EXPO_OS === 'web' ? undefined : CARD_ENTERING} style={cardStyle}>
+      {process.env.EXPO_OS === 'web' ? null : isLiquidGlassAvailable() ? (
         <GlassView pointerEvents="none" style={StyleSheet.absoluteFill} />
       ) : (
         <BlurView
