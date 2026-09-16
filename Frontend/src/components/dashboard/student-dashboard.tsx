@@ -525,16 +525,6 @@ export default function StudentDashboard() {
           ))
         )}
       </ScrollView>
-
-      <Pressable
-        onPress={() => router.navigate('/chatbot')}
-        style={({ pressed }) => [styles.chatFab, pressed && styles.pressed]}>
-        <DashboardIcon
-          name={{ ios: 'message.fill', android: 'chat_bubble', web: 'chat_bubble' }}
-          color="#FFFFFF"
-          size={26}
-        />
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -768,16 +758,4 @@ const styles = StyleSheet.create({
   announcementTitle: { color: NAVY, fontSize: 15, fontWeight: '800', flex: 1 },
   announcementBody: { color: MUTED, fontSize: 13, lineHeight: 18 },
   announcementDate: { color: '#9AA8BC', fontSize: 11, fontWeight: '600' },
-  chatFab: {
-    position: 'absolute',
-    right: Spacing.three,
-    bottom: 96,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PRIMARY,
-    boxShadow: '0 10px 26px rgba(57, 174, 169, 0.34)',
-  },
 });
