@@ -1,0 +1,19 @@
+{
+  "name": "CAS Assist",
+  "short_name": "CAS Assist",
+  "description": "AI-assisted academic information and helpdesk for the NEU College of Arts and Sciences.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#123936",
+  "background_color": "#F3F6F4",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

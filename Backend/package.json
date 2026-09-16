@@ -1,0 +1,46 @@
+{
+  "name": "cas-assist-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "inspect-schema": "node scripts/inspect-schema-metadata.cjs",
+    "verify-remote": "node scripts/verify-remote.mjs",
+    "seed-test": "node scripts/seed-test-environment.mjs",
+    "verify-integration": "node scripts/verify-integration.mjs",
+    "verify-announcements": "node scripts/verify-announcement-permissions.mjs",
+    "verify-room-change": "node scripts/verify-faculty-room-change.mjs",
+    "verify-student-registration": "node scripts/verify-student-registration.mjs",
+    "verify-system-analytics": "node scripts/verify-system-analytics.mjs",
+    "verify-ai-deflection": "node scripts/verify-ai-deflection.mjs",
+    "verify-faq-fallback": "node scripts/verify-faq-fallback.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.1",
+    "helmet": "^8.3.0",
+    "pino-http": "^11.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.22.0",
+    "tsx": "^4.20.6",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

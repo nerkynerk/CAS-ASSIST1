@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "CAS-Assist",
+    "slug": "CAS-Assist",
+    "description": "AI-assisted academic information and helpdesk for the NEU College of Arts and Sciences.",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "casassist",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.daviddino.casassist",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.daviddino.casassist",
+      "versionCode": 2,
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "backgroundColor": "#F3F6F4",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "bundler": "metro",
+      "favicon": "./assets/images/favicon.png",
+      "name": "CAS Assist",
+      "shortName": "CAS Assist",
+      "description": "AI-assisted academic information and helpdesk for the NEU College of Arts and Sciences.",
+      "lang": "en",
+      "display": "standalone",
+      "startUrl": "/",
+      "backgroundColor": "#F3F6F4",
+      "barStyle": "black-translucent"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F3F6F4",
+          "android": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 76
+          }
+        }
+      ],
+      "expo-image",
+      "expo-web-browser",
+      "expo-font",
+      "expo-status-bar",
+      "expo-notifications",
+      "expo-sqlite"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2e1e85ce-3ff4-4ad1-81b0-5cd920ae1cd0"
+      }
+    },
+    "owner": "nerkynerk"
+  }
+}
