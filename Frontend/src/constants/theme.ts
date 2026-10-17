@@ -17,29 +17,51 @@ export const Palette = {
 export const Colors = {
   light: {
     primary: Palette.aqua,
+    primaryPressed: '#096A65',
     text: '#132523',
+    textTertiary: '#879590',
     navy: Palette.slate,
     background: '#F3F6F4',
     backgroundElement: 'rgba(255,255,255,0.84)',
     card: 'rgba(255,255,255,0.84)',
+    surface: '#FFFFFF',
+    surfaceMuted: '#E8F0ED',
     backgroundSelected: 'rgba(11,125,119,0.11)',
     softBlue: 'rgba(11,125,119,0.10)',
     muted: 'rgba(225,234,230,0.72)',
     border: 'rgba(19,62,59,0.12)',
+    borderStrong: 'rgba(19,62,59,0.22)',
     textSecondary: '#60706D',
+    success: '#167A4A',
+    successBg: '#E8F6EF',
+    warning: '#A85F08',
+    warningBg: '#FFF4DE',
+    error: '#C53B31',
+    errorBg: '#FCECEA',
   },
   dark: {
     primary: '#5ED1C8',
+    primaryPressed: '#8AE2DA',
     text: '#F2F7F5',
+    textTertiary: '#829691',
     navy: '#F2F7F5',
     background: '#0C1716',
     backgroundElement: 'rgba(24,40,38,0.86)',
     card: 'rgba(24,40,38,0.86)',
+    surface: '#182826',
+    surfaceMuted: 'rgba(126,157,151,0.14)',
     backgroundSelected: 'rgba(94,209,200,0.16)',
     softBlue: 'rgba(94,209,200,0.13)',
     muted: 'rgba(126,157,151,0.14)',
     border: 'rgba(211,237,231,0.13)',
+    borderStrong: 'rgba(211,237,231,0.24)',
     textSecondary: '#A7B8B4',
+    success: '#62D99B',
+    successBg: 'rgba(98,217,155,0.14)',
+    warning: '#F4BF67',
+    warningBg: 'rgba(244,191,103,0.16)',
+    error: '#FF8B82',
+    errorBg: 'rgba(255,139,130,0.16)',
   },
 } as const;
 
@@ -108,6 +130,31 @@ export const TypeScale = {
   section: 18,
   title: 26,
   display: 32,
+} as const;
+
+export const Shadows = {
+  card: {
+    shadowColor: '#123936',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 3,
+  },
+  elevated: {
+    shadowColor: '#123936',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.14,
+    shadowRadius: 28,
+    elevation: 6,
+  },
+} as const;
+
+export const Layout = {
+  compactBreakpoint: 720,
+  wideBreakpoint: 980,
+  contentPadding: Spacing.three,
+  contentPaddingWide: Spacing.four,
+  minTouchTarget: 44,
 } as const;
 
 export const Radius = {

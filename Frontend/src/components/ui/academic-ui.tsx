@@ -47,8 +47,20 @@ import UserCog from 'lucide-react-native/icons/user-cog';
 import UserPlus from 'lucide-react-native/icons/user-plus';
 import Users from 'lucide-react-native/icons/users';
 import { usePathname, useRouter } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode, type Ref } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+  type PressableProps,
+  type StyleProp,
+  type TextInputProps,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -63,7 +75,7 @@ import Animated, {
   ZoomIn,
 } from 'react-native-reanimated';
 
-import { BrandColors, Fonts, Radius, Spacing, TypeScale } from '@/constants/theme';
+import { BrandColors, Colors, Fonts, Layout, MaxContentWidth, Radius, Shadows, Spacing, TypeScale } from '@/constants/theme';
 import { useAppTheme } from '@/context/theme';
 
 export type AcademicIconName = ComponentProps<typeof SymbolView>['name'];
@@ -149,6 +161,24 @@ export const STATUS_TONES = {
 
 export type StatusTone = keyof typeof STATUS_TONES;
 
+function statusColors(tone: StatusTone, colors: typeof Colors.light | typeof Colors.dark) {
+  switch (tone) {
+    case 'success':
+      return { bg: colors.successBg, text: colors.success };
+    case 'warning':
+      return { bg: colors.warningBg, text: colors.warning };
+    case 'error':
+      return { bg: colors.errorBg, text: colors.error };
+    case 'muted':
+      return { bg: colors.muted, text: colors.textSecondary };
+    case 'navy':
+      return { bg: colors.backgroundSelected, text: colors.navy };
+    case 'blue':
+    default:
+      return { bg: colors.softBlue, text: colors.primary };
+  }
+}
+
 export function AcademicIcon({
   name,
   size = 20,
@@ -185,7 +215,8 @@ export function StatusBadge({
   label: string;
   tone?: StatusTone;
 }) {
-  const colors = STATUS_TONES[tone];
+  const { colors: themeColors } = useAppTheme();
+  const colors = statusColors(tone, themeColors);
   return (
     <Animated.View entering={BADGE_ENTERING} style={[styles.badge, { backgroundColor: colors.bg }]}>
       <Text style={[styles.badgeText, { color: colors.text }]} numberOfLines={1}>
@@ -206,15 +237,16 @@ export function SectionHeader({
   onAction?: () => void;
   badge?: string;
 }) {
+  const { colors } = useAppTheme();
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.navy }]}>{title}</Text>
         {badge ? <StatusBadge label={badge} tone="error" /> : null}
       </View>
       {action && onAction ? (
         <Pressable onPress={onAction} hitSlop={8}>
-          <Text style={styles.sectionAction}>{action}</Text>
+          <Text style={[styles.sectionAction, { color: colors.primary }]}>{action}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -266,7 +298,7 @@ export function SurfaceCard({
   accent,
 }: {
   children: ReactNode;
-  style?: object;
+  style?: StyleProp<ViewStyle>;
   accent?: 'blue' | 'success' | 'error' | 'warning';
 }) {
   const { colors: themeColors, resolvedTheme } = useAppTheme();
@@ -284,7 +316,7 @@ export function SurfaceCard({
     styles.card,
     {
       backgroundColor: themeColors.card,
-      borderColor: resolvedTheme === 'dark' ? 'rgba(224,246,241,0.10)' : 'rgba(255,255,255,0.82)',
+      borderColor: themeColors.border,
     },
     accentColor && { borderLeftWidth: 4, borderLeftColor: accentColor },
     style,
@@ -319,7 +351,8 @@ export function MetricCard({
   icon: AcademicIconName;
   tone?: StatusTone;
 }) {
-  const colors = STATUS_TONES[tone];
+  const { colors: themeColors } = useAppTheme();
+  const colors = statusColors(tone, themeColors);
   return (
     <SurfaceCard style={styles.metricCard}>
       <View style={[styles.metricIcon, { backgroundColor: colors.bg }]}>
@@ -340,15 +373,16 @@ export function EmptyState({
   message: string;
   icon?: AcademicIconName;
 }) {
+  const { colors } = useAppTheme();
   return (
     <SurfaceCard style={styles.emptyState}>
       {icon ? (
         <View style={styles.emptyIcon}>
-          <AcademicIcon name={icon} color={Academic.textSecondary} size={24} />
+          <AcademicIcon name={icon} color={colors.textSecondary} size={24} />
         </View>
       ) : null}
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyMessage}>{message}</Text>
+      <Text style={[styles.emptyTitle, { color: colors.navy }]}>{title}</Text>
+      <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>{message}</Text>
     </SurfaceCard>
   );
 }
@@ -445,6 +479,126 @@ export function IconButton({
       accessibilityRole="button">
       <AcademicIcon name={icon} color={color} size={22} />
     </Pressable>
+  );
+}
+
+export type ActionButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+
+export function ActionButton({
+  label,
+  variant = 'primary',
+  icon,
+  loading = false,
+  style,
+  disabled,
+  ...props
+}: Omit<PressableProps, 'children' | 'style'> & {
+  label: string;
+  variant?: ActionButtonVariant;
+  icon?: AcademicIconName;
+  loading?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useAppTheme();
+  const palette = {
+    primary: { backgroundColor: colors.primary, foreground: '#FFFFFF' },
+    secondary: { backgroundColor: colors.backgroundSelected, foreground: colors.primary },
+    ghost: { backgroundColor: 'transparent', foreground: colors.primary },
+    danger: { backgroundColor: colors.errorBg, foreground: colors.error },
+  }[variant];
+
+  return (
+    <Pressable
+      {...props}
+      disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      style={({ pressed }) => [
+        styles.actionButton,
+        variant === 'ghost' && styles.actionButtonGhost,
+        { backgroundColor: palette.backgroundColor },
+        (disabled || loading) && styles.actionButtonDisabled,
+        pressed && styles.pressed,
+        style,
+      ]}>
+      {loading ? (
+        <ActivityIndicator color={palette.foreground} />
+      ) : (
+        <>
+          {icon ? <AcademicIcon name={icon} size={18} color={palette.foreground} /> : null}
+          <Text style={[styles.actionButtonText, { color: palette.foreground }]}>{label}</Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+export function TextField({
+  label,
+  hint,
+  error,
+  trailing,
+  inputRef,
+  containerStyle,
+  style: inputStyle,
+  placeholderTextColor,
+  ...props
+}: TextInputProps & {
+  label: string;
+  hint?: string;
+  error?: string;
+  trailing?: ReactNode;
+  inputRef?: Ref<TextInput>;
+  containerStyle?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useAppTheme();
+  const hasError = Boolean(error);
+
+  return (
+    <View style={[styles.fieldGroup, containerStyle]}>
+      <Text style={[styles.fieldLabel, { color: colors.navy }]}>{label}</Text>
+      <View
+        style={[
+          styles.textFieldShell,
+          { backgroundColor: colors.surfaceMuted, borderColor: hasError ? colors.error : colors.border },
+          props.editable === false && styles.textFieldDisabled,
+        ]}>
+        <TextInput
+          {...props}
+          ref={inputRef}
+          placeholderTextColor={placeholderTextColor ?? colors.textTertiary}
+          style={[styles.textFieldInput, { color: colors.text }, inputStyle]}
+        />
+        {trailing ? <View style={styles.textFieldTrailing}>{trailing}</View> : null}
+      </View>
+      {error || hint ? (
+        <Text style={[styles.fieldHint, { color: hasError ? colors.error : colors.textSecondary }]}>
+          {error ?? hint}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function ContentContainer({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
+
+  return (
+    <View
+      style={[
+        styles.contentContainer,
+        { paddingHorizontal: compact ? Layout.contentPadding : Layout.contentPaddingWide },
+        style,
+      ]}>
+      {children}
+    </View>
   );
 }
 
@@ -579,6 +733,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.16)',
   },
   card: {
+    ...Shadows.card,
     borderRadius: Radius.card,
     borderCurve: 'continuous',
     padding: Spacing.three,
@@ -653,5 +808,63 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionButton: {
+    minHeight: Layout.minTouchTarget,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.control,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    ...Shadows.card,
+  },
+  actionButtonGhost: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  actionButtonDisabled: { opacity: 0.58 },
+  actionButtonText: {
+    fontFamily: Fonts.sans,
+    fontSize: TypeScale.control,
+    lineHeight: 20,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+  },
+  fieldGroup: { gap: Spacing.one },
+  fieldLabel: {
+    fontFamily: Fonts.sans,
+    fontSize: TypeScale.body,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  textFieldShell: {
+    minHeight: 52,
+    borderRadius: Radius.control,
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    gap: Spacing.two,
+  },
+  textFieldDisabled: { opacity: 0.62 },
+  textFieldInput: {
+    flex: 1,
+    minHeight: 50,
+    paddingVertical: 0,
+    fontFamily: Fonts.sans,
+    fontSize: 16,
+    lineHeight: 21,
+  },
+  textFieldTrailing: { alignItems: 'center', justifyContent: 'center' },
+  fieldHint: {
+    fontFamily: Fonts.sans,
+    fontSize: TypeScale.caption,
+    lineHeight: 17,
+  },
+  contentContainer: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
   },
 });

@@ -1,18 +1,16 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Academic, AcademicIcon, AppBackdrop, SurfaceCard } from '@/components/ui/academic-ui';
+import { Academic, AcademicIcon, ActionButton, AppBackdrop, SurfaceCard, TextField } from '@/components/ui/academic-ui';
 import { Fonts, Radius, Spacing, TypeScale } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 
@@ -84,9 +82,7 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
           <Text style={styles.confirmedBody}>
             We sent a confirmation link to {email}. Activate your account, then sign in.
           </Text>
-          <Pressable style={styles.primaryButton} onPress={onNavigateToLogin}>
-            <Text style={styles.primaryButtonText}>Go to Sign In</Text>
-          </Pressable>
+          <ActionButton label="Go to Sign In" onPress={onNavigateToLogin} />
         </View>
       </SafeAreaView>
     );
@@ -120,97 +116,73 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
           <SurfaceCard style={styles.card}>
             {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 
-            <Field label="Full Name">
-              <TextInput
-                style={styles.input}
-                placeholder="Juan Dela Cruz"
-                placeholderTextColor={Academic.textSecondary}
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-                autoCorrect={false}
-                editable={!loading}
-              />
-            </Field>
+            <TextField
+              label="Full Name"
+              placeholder="Juan Dela Cruz"
+              value={displayName}
+              onChangeText={setDisplayName}
+              autoCapitalize="words"
+              autoCorrect={false}
+              editable={!loading}
+            />
 
-            <Field label="NEU Email">
-              <TextInput
-                style={styles.input}
-                placeholder="yourname@neu.edu.ph"
-                placeholderTextColor={Academic.textSecondary}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                editable={!loading}
-              />
-              {email.length > 0 && !email.toLowerCase().endsWith('@neu.edu.ph') ? (
-                <Text style={styles.fieldHint}>Must end with @neu.edu.ph</Text>
-              ) : null}
-            </Field>
+            <TextField
+              label="NEU Email"
+              placeholder="yourname@neu.edu.ph"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              editable={!loading}
+              hint={email.length > 0 && !email.toLowerCase().endsWith('@neu.edu.ph') ? 'Must end with @neu.edu.ph' : undefined}
+            />
 
-            <Field label="Student Number">
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 23-12345-678"
-                placeholderTextColor={Academic.textSecondary}
-                value={studentNumber}
-                onChangeText={value => setStudentNumber(value.replace(/[^0-9-]/g, '').slice(0, 24))}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
-                maxLength={24}
-                editable={!loading}
-              />
-              <Text style={styles.neutralHint}>Use the student number issued by NEU.</Text>
-            </Field>
+            <TextField
+              label="Student Number"
+              placeholder="e.g. 23-12345-678"
+              value={studentNumber}
+              onChangeText={value => setStudentNumber(value.replace(/[^0-9-]/g, '').slice(0, 24))}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
+              maxLength={24}
+              editable={!loading}
+              hint="Use the student number issued by NEU."
+            />
 
-            <Field label="Password">
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.inputInner}
-                  placeholder="Min. 8 characters"
-                  placeholderTextColor={Academic.textSecondary}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPass}
-                  editable={!loading}
-                />
+            <TextField
+              label="Password"
+              placeholder="Min. 8 characters"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPass}
+              editable={!loading}
+              trailing={
                 <Pressable onPress={() => setShowPass(value => !value)} hitSlop={8}>
                   <Text style={styles.showText}>{showPass ? 'Hide' : 'Show'}</Text>
                 </Pressable>
-              </View>
-            </Field>
+              }
+            />
 
-            <Field label="Confirm Password">
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.inputInner}
-                  placeholder="Re-enter your password"
-                  placeholderTextColor={Academic.textSecondary}
-                  value={confirm}
-                  onChangeText={setConfirm}
-                  secureTextEntry={!showConfirm}
-                  returnKeyType="done"
-                  onSubmitEditing={handleRegister}
-                  editable={!loading}
-                />
+            <TextField
+              label="Confirm Password"
+              placeholder="Re-enter your password"
+              value={confirm}
+              onChangeText={setConfirm}
+              secureTextEntry={!showConfirm}
+              returnKeyType="done"
+              onSubmitEditing={handleRegister}
+              editable={!loading}
+              error={confirm.length > 0 && password !== confirm ? 'Passwords do not match' : undefined}
+              trailing={
                 <Pressable onPress={() => setShowConfirm(value => !value)} hitSlop={8}>
                   <Text style={styles.showText}>{showConfirm ? 'Hide' : 'Show'}</Text>
                 </Pressable>
-              </View>
-              {confirm.length > 0 && password !== confirm ? (
-                <Text style={styles.fieldHint}>Passwords do not match</Text>
-              ) : null}
-            </Field>
+              }
+            />
 
-            <Pressable
-              style={({ pressed }) => [styles.primaryButton, (pressed || loading) && styles.pressed]}
-              onPress={handleRegister}
-              disabled={loading}>
-              {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Create Account</Text>}
-            </Pressable>
+            <ActionButton label="Create Account" onPress={handleRegister} loading={loading} />
           </SurfaceCard>
 
           <View style={styles.footer}>
@@ -225,15 +197,6 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.fieldGroup}>
-      <Text style={styles.label}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Academic.background },
   flex: { flex: 1 },
@@ -244,7 +207,6 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     gap: Spacing.four,
   },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
   header: { alignItems: 'center', gap: 8 },
   logo: {
     width: 70,
@@ -262,41 +224,7 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 520, alignSelf: 'center', gap: 15, padding: Spacing.four },
   errorBox: { borderRadius: 12, padding: 11, backgroundColor: Academic.errorBg },
   errorText: { color: Academic.error, fontSize: TypeScale.body, fontWeight: '600' },
-  fieldGroup: { gap: 7 },
-  label: { color: Academic.navy, fontSize: TypeScale.body, fontWeight: '600' },
-  fieldHint: { color: Academic.error, fontSize: 12, fontWeight: '700' },
-  neutralHint: { color: Academic.textSecondary, fontSize: 12, fontWeight: '600' },
-  input: {
-    height: 50,
-    borderRadius: Radius.control,
-    paddingHorizontal: 14,
-    color: Academic.navy,
-    backgroundColor: Academic.muted,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: Academic.border,
-  },
-  inputRow: {
-    height: 50,
-    borderRadius: Radius.control,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    backgroundColor: Academic.muted,
-    borderWidth: 1,
-    borderColor: Academic.border,
-  },
-  inputInner: { flex: 1, minHeight: 48, color: Academic.navy, fontSize: 16 },
   showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
-  primaryButton: {
-    height: 52,
-    borderRadius: Radius.control,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Academic.primary,
-  },
-  primaryButtonText: { color: '#FFFFFF', fontSize: TypeScale.control, fontWeight: '700' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
   footerText: { color: Academic.textSecondary, fontSize: 14 },
   footerLink: { color: Academic.primary, fontSize: 14, fontWeight: '700' },

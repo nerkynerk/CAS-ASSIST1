@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Academic, AcademicIcon, AppBackdrop, SurfaceCard } from '@/components/ui/academic-ui';
+import { Academic, AcademicIcon, ActionButton, AppBackdrop, SurfaceCard, TextField } from '@/components/ui/academic-ui';
 import { Fonts, Radius, Spacing, TypeScale } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 
@@ -85,60 +84,51 @@ export default function LoginScreen({ onNavigateToRegister }: Props) {
               </View>
             ) : null}
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>NEU Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="yourname@neu.edu.ph"
-                placeholderTextColor={Academic.textSecondary}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                importantForAutofill="yes"
-                keyboardType="email-address"
-                returnKeyType="next"
-                submitBehavior="submit"
-                onSubmitEditing={() => passwordInputRef.current?.focus()}
-                editable={!loading}
-              />
-            </View>
+            <TextField
+              label="NEU Email"
+              placeholder="yourname@neu.edu.ph"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              importantForAutofill="yes"
+              keyboardType="email-address"
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
+              editable={!loading}
+            />
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  ref={passwordInputRef}
-                  style={styles.inputInner}
-                  placeholder="Enter your password"
-                  placeholderTextColor={Academic.textSecondary}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPass}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="current-password"
-                  textContentType="password"
-                  importantForAutofill="yes"
-                  returnKeyType="done"
-                  submitBehavior="blurAndSubmit"
-                  onSubmitEditing={handleSignIn}
-                  editable={!loading}
-                />
+            <TextField
+              label="Password"
+              inputRef={passwordInputRef}
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPass}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="current-password"
+              textContentType="password"
+              importantForAutofill="yes"
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={handleSignIn}
+              editable={!loading}
+              trailing={
                 <Pressable onPress={() => setShowPass(value => !value)} hitSlop={8}>
                   <Text style={styles.showText}>{showPass ? 'Hide' : 'Show'}</Text>
                 </Pressable>
-              </View>
-            </View>
+              }
+            />
 
-            <Pressable
-              style={({ pressed }) => [styles.primaryButton, (pressed || loading) && styles.pressed]}
+            <ActionButton
+              label="Sign In"
               onPress={handleSignIn}
-              disabled={loading}>
-              {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Sign In</Text>}
-            </Pressable>
+              loading={loading}
+            />
           </SurfaceCard>
 
           <View style={styles.footer}>
@@ -163,7 +153,6 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     gap: Spacing.four,
   },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
   brand: { alignItems: 'center', gap: 8 },
   logo: {
     width: 76,
@@ -184,39 +173,7 @@ const styles = StyleSheet.create({
   formSub: { color: Academic.textSecondary, fontFamily: Fonts.sans, fontSize: TypeScale.body, lineHeight: 20 },
   errorBox: { borderRadius: 12, padding: 11, backgroundColor: Academic.errorBg },
   errorText: { color: Academic.error, fontSize: TypeScale.body, fontWeight: '600' },
-  fieldGroup: { gap: 7 },
-  label: { color: Academic.navy, fontSize: TypeScale.body, fontWeight: '600' },
-  input: {
-    height: 50,
-    borderRadius: Radius.control,
-    paddingHorizontal: 14,
-    color: Academic.navy,
-    backgroundColor: Academic.muted,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: Academic.border,
-  },
-  inputRow: {
-    height: 50,
-    borderRadius: Radius.control,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    backgroundColor: Academic.muted,
-    borderWidth: 1,
-    borderColor: Academic.border,
-  },
-  inputInner: { flex: 1, minHeight: 48, color: Academic.navy, fontSize: 16 },
   showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
-  primaryButton: {
-    height: 52,
-    borderRadius: Radius.control,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Academic.primary,
-  },
-  primaryButtonText: { color: '#FFFFFF', fontSize: TypeScale.control, fontWeight: '700' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
   footerText: { color: Academic.textSecondary, fontSize: TypeScale.body },
   footerLink: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
