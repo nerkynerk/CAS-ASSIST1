@@ -11,16 +11,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Academic, AcademicIcon, ActionButton, AppBackdrop, SurfaceCard, TextField } from '@/components/ui/academic-ui';
+import { Academic, AcademicIcon, ActionButton, AppBackdrop, StatusBadge, SurfaceCard, TextField } from '@/components/ui/academic-ui';
 import { Fonts, Radius, Spacing, TypeScale } from '@/constants/theme';
-import { useAuth } from '@/context/auth';
+import { useAuth, type LoginCategory } from '@/context/auth';
+import { useAppTheme } from '@/context/theme';
 
 interface Props {
+  category: LoginCategory;
   onNavigateToRegister: () => void;
+  onChangeCategory: () => void;
 }
 
-export default function LoginScreen({ onNavigateToRegister }: Props) {
+export default function LoginScreen({ category, onNavigateToRegister, onChangeCategory }: Props) {
   const { signIn, profileError } = useAuth();
+  const { colors } = useAppTheme();
+  const isStudent = category === 'student';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -42,14 +47,14 @@ export default function LoginScreen({ onNavigateToRegister }: Props) {
     }
 
     setLoading(true);
-    const { error: authError } = await signIn(trimmedEmail, password);
+    const { error: authError } = await signIn(trimmedEmail, password, category);
     setLoading(false);
 
     if (authError) setError(authError);
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <KeyboardAvoidingView
         style={styles.flex}
@@ -62,25 +67,28 @@ export default function LoginScreen({ onNavigateToRegister }: Props) {
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           showsVerticalScrollIndicator={false}>
           <View style={styles.brand}>
-            <View style={styles.logo}>
+            <View style={[styles.logo, { backgroundColor: colors.primary, borderColor: colors.border }]}>
               <AcademicIcon
                 name={{ ios: 'building.columns', android: 'account_balance', web: 'account_balance' }}
                 color="#FFFFFF"
                 size={34}
               />
             </View>
-            <Text style={styles.appName}>CAS Assist</Text>
-            <Text style={styles.appSub}>College of Arts and Sciences</Text>
-            <Text style={styles.appCopy}>AI-assisted department information and helpdesk for New Era University.</Text>
+            <Text style={[styles.appName, { color: colors.navy }]}>CAS Assist</Text>
+            <Text style={[styles.appSub, { color: colors.primary }]}>College of Arts and Sciences</Text>
+            <Text style={[styles.appCopy, { color: colors.textSecondary }]}>AI-assisted department information and helpdesk for New Era University.</Text>
           </View>
 
           <SurfaceCard style={styles.card}>
-            <Text style={styles.formTitle}>Sign in</Text>
-            <Text style={styles.formSub}>Use your institutional account to continue.</Text>
+            <StatusBadge label={isStudent ? 'Student access' : 'Institutional access'} tone={isStudent ? 'blue' : 'success'} />
+            <Text style={[styles.formTitle, { color: colors.navy }]}>{isStudent ? 'Student sign in' : 'Staff, Faculty & Admin sign in'}</Text>
+            <Text style={[styles.formSub, { color: colors.textSecondary }]}>
+              {isStudent ? 'Access your CAS academic workspace.' : 'Use your authorized institutional account.'}
+            </Text>
 
             {error || profileError ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error ?? profileError}</Text>
+              <View style={[styles.errorBox, { backgroundColor: colors.errorBg }]}>
+                <Text style={[styles.errorText, { color: colors.error }]}>{error ?? profileError}</Text>
               </View>
             ) : null}
 
@@ -119,7 +127,7 @@ export default function LoginScreen({ onNavigateToRegister }: Props) {
               editable={!loading}
               trailing={
                 <Pressable onPress={() => setShowPass(value => !value)} hitSlop={8}>
-                  <Text style={styles.showText}>{showPass ? 'Hide' : 'Show'}</Text>
+                  <Text style={[styles.showText, { color: colors.primary }]}>{showPass ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               }
             />
@@ -132,9 +140,19 @@ export default function LoginScreen({ onNavigateToRegister }: Props) {
           </SurfaceCard>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don&apos;t have an account?</Text>
-            <Pressable onPress={onNavigateToRegister}>
-              <Text style={styles.footerLink}>Register</Text>
+            {isStudent ? (
+              <>
+                <Text style={[styles.footerText, { color: colors.textSecondary }]}>Don&apos;t have an account?</Text>
+                <Pressable onPress={onNavigateToRegister}>
+                  <Text style={[styles.footerLink, { color: colors.primary }]}>Register</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={[styles.footerText, { color: colors.textSecondary }]}>Authorized accounts only.</Text>
+            )}
+            <Text style={[styles.footerDivider, { color: colors.border }]}>•</Text>
+            <Pressable onPress={onChangeCategory}>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>Change account type</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -176,5 +194,6 @@ const styles = StyleSheet.create({
   showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
   footerText: { color: Academic.textSecondary, fontSize: TypeScale.body },
+  footerDivider: { color: Academic.border, fontSize: TypeScale.body, marginHorizontal: 3 },
   footerLink: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
 });

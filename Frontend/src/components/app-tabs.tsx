@@ -1,13 +1,11 @@
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { type ColorValue } from 'react-native';
+import { useWindowDimensions, type ColorValue } from 'react-native';
 
 import { AcademicIcon, type AcademicIconName } from '@/components/ui/academic-ui';
 import { useAuth } from '@/context/auth';
 import { useAppTheme } from '@/context/theme';
-import { BrandColors } from '@/constants/theme';
-
-const PRIMARY = BrandColors.primary;
+import { Fonts, Layout } from '@/constants/theme';
 
 function tabIcon(name: AcademicIconName) {
   return function TabBarIcon({ color, size }: { color: ColorValue; size: number }) {
@@ -20,18 +18,21 @@ function tabIcon(name: AcademicIconName) {
 export default function AppTabs() {
   const { colors, resolvedTheme } = useAppTheme();
   const { profile } = useAuth();
+  const { width } = useWindowDimensions();
   const role = profile?.role;
   const isStudent = role === 'student';
   const isFaculty = role === 'faculty';
   const isStaff = role === 'staff';
   const isSuperAdmin = role === 'super_admin';
+  const showLabels = width >= 390;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: PRIMARY,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
+        tabBarActiveBackgroundColor: colors.backgroundSelected,
         tabBarHideOnKeyboard: true,
         tabBarBackground: () => (
           <BlurView
@@ -43,15 +44,26 @@ export default function AppTabs() {
         ),
         tabBarStyle: {
           position: 'absolute',
-          height: 72,
-          paddingTop: 8,
-          paddingBottom: 8,
+          height: showLabels ? 76 : 66,
+          paddingTop: showLabels ? 8 : 6,
+          paddingBottom: showLabels ? 8 : 6,
           backgroundColor: 'transparent',
+          borderTopWidth: 0,
           borderTopColor: 'transparent',
           boxShadow: '0 -12px 36px rgba(20, 52, 49, 0.10)',
         },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600', letterSpacing: 0.1 },
-        tabBarItemStyle: { borderRadius: 14 },
+        tabBarLabelStyle: {
+          fontFamily: Fonts.sans,
+          fontSize: 12,
+          fontWeight: '600',
+          letterSpacing: 0.1,
+        },
+        tabBarItemStyle: {
+          borderRadius: 14,
+          marginHorizontal: width >= Layout.compactBreakpoint ? 3 : 1,
+          marginVertical: 4,
+        },
+        tabBarShowLabel: showLabels,
       }}>
       <Tabs.Screen
         name="index"

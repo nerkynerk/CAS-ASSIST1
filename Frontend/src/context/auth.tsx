@@ -14,13 +14,15 @@ export interface UserProfile {
   state: 'active' | 'archived_read_only';
 }
 
+export type LoginCategory = 'student' | 'institutional';
+
 interface AuthContextValue {
   session: Session | null;
   profile: UserProfile | null;
   isLoading: boolean;
   isProfileLoading: boolean;
   profileError: string | null;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string, category?: LoginCategory) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
     password: string,
@@ -49,6 +51,15 @@ function safeProfileError(error: { code?: string; message?: string } | null): st
   return 'We could not load your CAS Assist profile. Check your connection and try signing in again.';
 }
 
+function categoryAllowsRole(category: LoginCategory, role: UserProfile['role']): boolean {
+  return category === 'student'
+    ? role === 'student'
+    : role === 'faculty' || role === 'staff' || role === 'super_admin';
+}
+
+const CATEGORY_MISMATCH_MESSAGE =
+  'This account does not match the selected sign-in category. Choose the other account type or use a different account.';
+
 // ── Provider ─────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -59,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileError, setProfileError] = useState<string | null>(null);
   const requestRef = useRef<{ userId: string; promise: Promise<ProfileResult> } | null>(null);
   const generationRef = useRef(0);
+  const pendingLoginRef = useRef<{ userId: string | null; category: LoginCategory } | null>(null);
 
   // ── Supabase profile helpers ──────────────────────────────
 
@@ -88,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearLocalAuth = useCallback(async (message?: string) => {
     generationRef.current += 1;
+    pendingLoginRef.current = null;
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch {
@@ -99,13 +112,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (message) setProfileError(message);
   }, []);
 
-  const loadAuthenticatedProfile = useCallback(async (nextSession: Session): Promise<ProfileResult> => {
+  const loadAuthenticatedProfile = useCallback(async (
+    nextSession: Session,
+    expectedCategory?: LoginCategory,
+  ): Promise<ProfileResult> => {
     const generation = generationRef.current;
     setIsProfileLoading(true);
     setProfileError(null);
     const result = await fetchProfile(nextSession.user.id);
     if (generation !== generationRef.current) return result;
     if (result.ok) {
+      if (expectedCategory && !categoryAllowsRole(expectedCategory, result.profile.role)) {
+        await clearLocalAuth(CATEGORY_MISMATCH_MESSAGE);
+        return { ok: false, message: CATEGORY_MISMATCH_MESSAGE };
+      }
       setSession(nextSession);
       setProfile(result.profile);
       setIsProfileLoading(false);
@@ -146,12 +166,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!active) return;
       if (!nextSession) {
         generationRef.current += 1;
+        pendingLoginRef.current = null;
         setSession(null);
         setProfile(null);
         setIsProfileLoading(false);
         return;
       }
-      void loadAuthenticatedProfile(nextSession);
+      const pendingLogin = pendingLoginRef.current;
+      const expectedCategory = pendingLogin
+        && (!pendingLogin.userId || pendingLogin.userId === nextSession.user.id)
+        ? pendingLogin.category
+        : undefined;
+      void loadAuthenticatedProfile(nextSession, expectedCategory);
     });
 
     return () => {
@@ -162,12 +188,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Auth actions ─────────────────────────────────────────
 
-  async function signIn(email: string, password: string): Promise<{ error: string | null }> {
+  async function signIn(
+    email: string,
+    password: string,
+    category?: LoginCategory,
+  ): Promise<{ error: string | null }> {
     setProfileError(null);
+    pendingLoginRef.current = category ? { userId: null, category } : null;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    if (!data.session) return { error: 'Sign in did not create a valid session. Please try again.' };
-    const result = await loadAuthenticatedProfile(data.session);
+    if (error) {
+      pendingLoginRef.current = null;
+      return { error: error.message };
+    }
+    if (!data.session) {
+      pendingLoginRef.current = null;
+      return { error: 'Sign in did not create a valid session. Please try again.' };
+    }
+    if (category) pendingLoginRef.current = { userId: data.session.user.id, category };
+    const result = await loadAuthenticatedProfile(data.session, category);
     return { error: result.ok ? null : result.message };
   }
 
@@ -177,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     displayName: string,
     studentNumber: string,
   ): Promise<{ error: string | null; needsConfirmation: boolean }> {
+    pendingLoginRef.current = null;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

@@ -13,13 +13,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Academic, AcademicIcon, ActionButton, AppBackdrop, SurfaceCard, TextField } from '@/components/ui/academic-ui';
 import { Fonts, Radius, Spacing, TypeScale } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useAppTheme } from '@/context/theme';
 
 interface Props {
   onNavigateToLogin: () => void;
+  onChangeAccountType: () => void;
 }
 
-export default function RegisterScreen({ onNavigateToLogin }: Props) {
+export default function RegisterScreen({ onNavigateToLogin, onChangeAccountType }: Props) {
   const { signUp } = useAuth();
+  const { colors } = useAppTheme();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [studentNumber, setStudentNumber] = useState('');
@@ -68,18 +71,18 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
 
   if (confirmed) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <AppBackdrop />
         <View style={styles.confirmedContainer}>
-          <View style={styles.confirmedIcon}>
+          <View style={[styles.confirmedIcon, { backgroundColor: colors.softBlue }]}>
             <AcademicIcon
               name={{ ios: 'envelope', android: 'mail', web: 'mail' }}
-              color={Academic.primary}
+              color={colors.primary}
               size={34}
             />
           </View>
-          <Text style={styles.confirmedTitle}>Check Your Email</Text>
-          <Text style={styles.confirmedBody}>
+          <Text style={[styles.confirmedTitle, { color: colors.navy }]}>Check Your Email</Text>
+          <Text style={[styles.confirmedBody, { color: colors.textSecondary }]}>
             We sent a confirmation link to {email}. Activate your account, then sign in.
           </Text>
           <ActionButton label="Go to Sign In" onPress={onNavigateToLogin} />
@@ -89,7 +92,7 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <KeyboardAvoidingView
         style={styles.flex}
@@ -102,19 +105,19 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <View style={styles.logo}>
+            <View style={[styles.logo, { backgroundColor: colors.primary, borderColor: colors.border }]}>
               <AcademicIcon
                 name={{ ios: 'person.badge.plus', android: 'person_add', web: 'person_add' }}
                 color="#FFFFFF"
                 size={32}
               />
             </View>
-            <Text style={styles.formTitle}>Create Account</Text>
-            <Text style={styles.formSub}>CAS Assist accounts are for NEU institutional users.</Text>
+            <Text style={[styles.formTitle, { color: colors.navy }]}>Create Account</Text>
+            <Text style={[styles.formSub, { color: colors.textSecondary }]}>CAS Assist accounts are for NEU institutional users.</Text>
           </View>
 
           <SurfaceCard style={styles.card}>
-            {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+            {error ? <View style={[styles.errorBox, { backgroundColor: colors.errorBg }]}><Text style={[styles.errorText, { color: colors.error }]}>{error}</Text></View> : null}
 
             <TextField
               label="Full Name"
@@ -160,7 +163,7 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
               editable={!loading}
               trailing={
                 <Pressable onPress={() => setShowPass(value => !value)} hitSlop={8}>
-                  <Text style={styles.showText}>{showPass ? 'Hide' : 'Show'}</Text>
+                  <Text style={[styles.showText, { color: colors.primary }]}>{showPass ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               }
             />
@@ -177,7 +180,7 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
               error={confirm.length > 0 && password !== confirm ? 'Passwords do not match' : undefined}
               trailing={
                 <Pressable onPress={() => setShowConfirm(value => !value)} hitSlop={8}>
-                  <Text style={styles.showText}>{showConfirm ? 'Hide' : 'Show'}</Text>
+                  <Text style={[styles.showText, { color: colors.primary }]}>{showConfirm ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               }
             />
@@ -186,9 +189,13 @@ export default function RegisterScreen({ onNavigateToLogin }: Props) {
           </SurfaceCard>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account?</Text>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>Already have an account?</Text>
             <Pressable onPress={onNavigateToLogin}>
-              <Text style={styles.footerLink}>Sign In</Text>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>Sign In</Text>
+            </Pressable>
+            <Text style={[styles.footerDivider, { color: colors.border }]}>•</Text>
+            <Pressable onPress={onChangeAccountType}>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>Change account type</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -227,6 +234,7 @@ const styles = StyleSheet.create({
   showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
   footerText: { color: Academic.textSecondary, fontSize: 14 },
+  footerDivider: { color: Academic.border, fontSize: 14, marginHorizontal: 3 },
   footerLink: { color: Academic.primary, fontSize: 14, fontWeight: '700' },
   confirmedContainer: {
     flex: 1,

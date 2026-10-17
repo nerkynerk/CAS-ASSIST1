@@ -1,14 +1,14 @@
 import { BlurView } from 'expo-blur';
 import { usePathname } from 'expo-router';
 import { Tabs, TabList, TabTrigger, TabSlot, type TabTriggerSlotProps, type TabListProps } from 'expo-router/ui';
+import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AcademicIcon, type AcademicIconName } from './ui/academic-ui';
 import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
 import { useAuth } from '@/context/auth';
 import { useAppTheme } from '@/context/theme';
-import { BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Layout, MaxContentWidth, Spacing } from '@/constants/theme';
 
 type SymbolName = AcademicIconName;
 
@@ -84,29 +84,61 @@ export function TabButton({
 }) {
   const { colors } = useAppTheme();
   const { width } = useWindowDimensions();
-  const compact = width < 720;
+  const [keyboardFocused, setKeyboardFocused] = useState(false);
+  const compact = width < Layout.compactBreakpoint;
+  const micro = width < 380;
+  const highlighted = isFocused || keyboardFocused;
+
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedView
-        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={[styles.tabButtonView, compact && styles.tabButtonCompact]}>
+    <Pressable
+      {...props}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isFocused }}
+      onFocus={event => {
+        setKeyboardFocused(true);
+        props.onFocus?.(event);
+      }}
+      onBlur={event => {
+        setKeyboardFocused(false);
+        props.onBlur?.(event);
+      }}
+      style={({ pressed }) => [
+        styles.tabPressable,
+        keyboardFocused && styles.focusedPressable,
+        pressed && styles.pressed,
+      ]}>
+      <View
+        style={[
+          styles.tabButtonView,
+          { backgroundColor: isFocused ? colors.backgroundSelected : 'transparent' },
+          highlighted && { borderColor: colors.primary },
+          compact && styles.tabButtonCompact,
+          micro && styles.tabButtonMicro,
+        ]}>
+        <View
+          style={[
+            styles.activeIndicator,
+            { backgroundColor: colors.primary },
+            !isFocused && styles.activeIndicatorHidden,
+          ]}
+        />
         <AcademicIcon
           name={icon}
           size={17}
-          color={isFocused ? BrandColors.primary : colors.textSecondary}
+          color={isFocused ? colors.primary : colors.textSecondary}
         />
         {!compact ? (
-          <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+          <ThemedText type="smallBold" themeColor={isFocused ? 'text' : 'textSecondary'}>
             {children}
           </ThemedText>
         ) : null}
-      </ThemedView>
+      </View>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
-  const { resolvedTheme } = useAppTheme();
+  const { colors, resolvedTheme } = useAppTheme();
   const { width } = useWindowDimensions();
   const pathname = usePathname();
   const fullScreen = pathname === '/chatbot' || pathname === '/faq';
@@ -115,9 +147,9 @@ export function CustomTabList(props: TabListProps) {
       <BlurView
         intensity={resolvedTheme === 'dark' ? 46 : 72}
         tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-        style={styles.innerContainer}>
+        style={[styles.innerContainer, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         {width >= 980 ? <View style={styles.brand}>
-          <View style={styles.brandMark}>
+          <View style={[styles.brandMark, { backgroundColor: colors.primary }]}>
             <AcademicIcon
               name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
               color="#FFFFFF"
@@ -161,24 +193,39 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9, marginRight: 'auto', paddingRight: 12 },
-  brandMark: { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: BrandColors.primary },
+  brandMark: { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   brandText: { letterSpacing: -0.15 },
   hiddenTab: { display: 'none' },
   tabListHidden: { display: 'none' },
   pressed: { opacity: 0.84, transform: [{ scale: 0.97 }] },
+  tabPressable: { borderRadius: 15 },
+  focusedPressable: { outlineStyle: 'solid', outlineWidth: 2, outlineColor: 'rgba(11,125,119,0.36)', outlineOffset: 2 },
   tabButtonView: {
     minHeight: 40,
     paddingVertical: 7,
     paddingHorizontal: 11,
     borderRadius: 13,
     borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    position: 'relative',
   },
   tabButtonCompact: {
     width: 46,
     paddingHorizontal: 0,
     justifyContent: 'center',
   },
+  tabButtonMicro: { width: 42 },
+  activeIndicator: {
+    position: 'absolute',
+    left: 7,
+    right: 7,
+    bottom: 1,
+    height: 2,
+    borderRadius: 1,
+  },
+  activeIndicatorHidden: { opacity: 0 },
 });

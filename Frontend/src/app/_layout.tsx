@@ -6,15 +6,16 @@ import { StatusBar } from 'expo-status-bar';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import AuthenticatedErrorBoundary from '@/components/authenticated-error-boundary';
+import AuthLandingScreen from '@/components/auth/auth-landing-screen';
 import LoginScreen from '@/components/auth/login-screen';
 import RegisterScreen from '@/components/auth/register-screen';
 import { Academic, FloatingChatButton } from '@/components/ui/academic-ui';
-import { AuthProvider, useAuth } from '@/context/auth';
+import { AuthProvider, useAuth, type LoginCategory } from '@/context/auth';
 import { AppThemeProvider, useAppTheme } from '@/context/theme';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { publicConfigError } from '@/lib/config';
 
-type AuthView = 'login' | 'register';
+type AuthView = 'landing' | 'login' | 'register';
 
 const styles = StyleSheet.create({
   // Must be above AnimatedSplashOverlay (zIndex 1000) on native,
@@ -81,7 +82,17 @@ function AuthenticatedWorkspace({
 
 function AppGate() {
   const { session, profile, isLoading, isProfileLoading, signOut } = useAuth();
-  const [authView, setAuthView] = useState<AuthView>('login');
+  const [authView, setAuthView] = useState<AuthView>('landing');
+  const [loginCategory, setLoginCategory] = useState<LoginCategory>('student');
+  const hadSessionRef = useRef(false);
+
+  useEffect(() => {
+    if (!session && hadSessionRef.current) {
+      setAuthView('landing');
+      setLoginCategory('student');
+    }
+    hadSessionRef.current = Boolean(session);
+  }, [session]);
 
   if (publicConfigError) {
     return (
@@ -113,10 +124,24 @@ function AppGate() {
 
   return (
     <View style={styles.authContainer}>
-      {authView === 'login' ? (
-        <LoginScreen onNavigateToRegister={() => setAuthView('register')} />
+      {authView === 'landing' ? (
+        <AuthLandingScreen
+          onSelectCategory={category => {
+            setLoginCategory(category);
+            setAuthView('login');
+          }}
+        />
+      ) : authView === 'login' ? (
+        <LoginScreen
+          category={loginCategory}
+          onNavigateToRegister={() => setAuthView('register')}
+          onChangeCategory={() => setAuthView('landing')}
+        />
       ) : (
-        <RegisterScreen onNavigateToLogin={() => setAuthView('login')} />
+        <RegisterScreen
+          onNavigateToLogin={() => setAuthView('login')}
+          onChangeAccountType={() => setAuthView('landing')}
+        />
       )}
     </View>
   );
