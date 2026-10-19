@@ -24,8 +24,10 @@ import {
   formatCategory,
   shortRef,
 } from '@/components/ui/academic-ui';
+import { DashboardActionCard, dashboardActionGridStyles } from '@/components/dashboard/dashboard-primitives';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 interface TicketRow {
@@ -55,28 +57,10 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 }
 
-function OperationsAction({
-  label,
-  icon,
-  onPress,
-}: {
-  label: string;
-  icon: Parameters<typeof AcademicIcon>[0]['name'];
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.actionCard, pressed && styles.pressed]}>
-      <View style={styles.actionIcon}>
-        <AcademicIcon name={icon} color={Academic.primary} size={22} />
-      </View>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </Pressable>
-  );
-}
-
 export default function StaffDashboard() {
   const router = useRouter();
   const { profile } = useAuth();
+  const theme = useTheme();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [urgent, setUrgent] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,11 +107,11 @@ export default function StaffDashboard() {
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <AppBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         contentContainerStyle={styles.scroll}>
         <RoleHeroHeader
           label="CAS Assist Staff"
@@ -169,24 +153,28 @@ export default function StaffDashboard() {
         )}
 
         <SectionHeader title="Operations" action={`${total} active`} onAction={() => router.navigate('/admin')} />
-        <View style={styles.actionGrid}>
-          <OperationsAction
+        <View style={dashboardActionGridStyles.grid}>
+          <DashboardActionCard
             label="Manage Queue"
+            caption="Process existing assistance requests."
             icon={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'tickets' } })}
           />
-          <OperationsAction
+          <DashboardActionCard
             label="Post Announcement"
+            caption="Share an authorized department update."
             icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'announce' } })}
           />
-          <OperationsAction
+          <DashboardActionCard
             label="Document Requests"
+            caption="Open the existing processing queue."
             icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'documents' } })}
           />
-          <OperationsAction
+          <DashboardActionCard
             label="View Updates"
+            caption="Read current department announcements."
             icon={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
             onPress={() => router.navigate('/explore')}
           />
@@ -206,31 +194,31 @@ export default function StaffDashboard() {
               <Pressable key={ticket.id} onPress={() => router.navigate('/admin')}>
                 <SurfaceCard style={styles.ticketCard} accent={ticket.status === 'action_required' ? 'warning' : 'blue'}>
                   <View style={styles.ticketTop}>
-                    <View style={styles.ticketIcon}>
+                    <View style={[styles.ticketIcon, { backgroundColor: theme.softBlue }]}>
                       <AcademicIcon
                         name={{ ios: 'doc.text', android: 'assignment', web: 'assignment' }}
-                        color={Academic.primary}
+                        color={theme.primary}
                         size={20}
                       />
                     </View>
                     <View style={styles.ticketBody}>
                       <View style={styles.ticketMeta}>
-                        <Text style={styles.ticketRef}>{shortRef(ticket.id)}</Text>
+                        <Text style={[styles.ticketRef, { color: theme.primary }]}>{shortRef(ticket.id)}</Text>
                         <StatusBadge
                           label={STATUS_LABEL[ticket.status] ?? ticket.status}
                           tone={STATUS_TONE[ticket.status] ?? 'muted'}
                         />
                       </View>
-                      <Text style={styles.ticketTitle} numberOfLines={1}>{formatCategory(ticket.category)}</Text>
+                      <Text style={[styles.ticketTitle, { color: theme.navy }]} numberOfLines={1}>{formatCategory(ticket.category)}</Text>
                       {student ? (
-                        <Text style={styles.ticketStudent} numberOfLines={1}>
+                        <Text style={[styles.ticketStudent, { color: theme.textSecondary }]} numberOfLines={1}>
                           {student.display_name} - {student.email}
                         </Text>
                       ) : null}
                     </View>
                   </View>
-                  <Text style={styles.ticketDesc} numberOfLines={2}>{ticket.description}</Text>
-                  <Text style={styles.ticketDate}>{formatDate(ticket.created_at)}</Text>
+                  <Text style={[styles.ticketDesc, { color: theme.textSecondary }]} numberOfLines={2}>{ticket.description}</Text>
+                  <Text style={[styles.ticketDate, { color: theme.textSecondary }]}>{formatDate(ticket.created_at)}</Text>
                 </SurfaceCard>
               </Pressable>
             );
@@ -254,27 +242,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   loader: { marginTop: Spacing.four },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
-  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  actionCard: {
-    flexGrow: 1,
-    flexBasis: 150,
-    minHeight: 88,
-    borderRadius: 16,
-    padding: 12,
-    gap: 8,
-    backgroundColor: Academic.card,
-    borderWidth: 1,
-    borderColor: Academic.border,
-  },
-  actionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Academic.softBlue,
-  },
-  actionLabel: { color: Academic.navy, fontSize: 13, lineHeight: 17, fontWeight: '900' },
   ticketCard: { gap: 10 },
   ticketTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   ticketIcon: {

@@ -24,8 +24,10 @@ import {
   StatusBadge,
   SurfaceCard,
 } from '@/components/ui/academic-ui';
+import { DashboardActionCard, dashboardActionGridStyles } from '@/components/dashboard/dashboard-primitives';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -77,28 +79,10 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 }
 
-function QuickAction({
-  label,
-  icon,
-  onPress,
-}: {
-  label: string;
-  icon: Parameters<typeof AcademicIcon>[0]['name'];
-  onPress: () => void;
-}) {
-  return (
-    <Pressable style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]} onPress={onPress}>
-      <View style={styles.quickIcon}>
-        <AcademicIcon name={icon} color={Academic.primary} size={22} />
-      </View>
-      <Text style={styles.quickLabel}>{label}</Text>
-    </Pressable>
-  );
-}
-
 export default function FacultyDashboard() {
   const router = useRouter();
   const { profile } = useAuth();
+  const theme = useTheme();
 
   const [view, setView] = useState<FacultyView>('main');
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -260,7 +244,7 @@ export default function FacultyDashboard() {
 
   if (view === 'room-change') {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
         <AppBackdrop />
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -271,17 +255,17 @@ export default function FacultyDashboard() {
               icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
               onPress={() => setView('main')}
               label="Back"
-              bg={Academic.muted}
-              color={Academic.textSecondary}
+              bg={theme.muted}
+              color={theme.textSecondary}
             />
             <View style={{ flex: 1 }}>
-              <Text style={styles.pageTitle}>Log Room Change</Text>
-              <Text style={styles.pageSubtitle}>Notify students of a classroom relocation.</Text>
+              <Text style={[styles.pageTitle, { color: theme.navy }]}>Log Room Change</Text>
+              <Text style={[styles.pageSubtitle, { color: theme.textSecondary }]}>Notify students of a classroom relocation.</Text>
             </View>
           </View>
 
-          {rcError ? <View style={styles.errorBox}><Text style={styles.errorText}>{rcError}</Text></View> : null}
-          {rcSuccess ? <View style={styles.successBox}><Text style={styles.successText}>Room change logged and students notified.</Text></View> : null}
+          {rcError ? <View style={[styles.errorBox, { backgroundColor: theme.errorBg }]}><Text style={[styles.errorText, { color: theme.error }]}>{rcError}</Text></View> : null}
+          {rcSuccess ? <View style={[styles.successBox, { backgroundColor: theme.successBg }]}><Text style={[styles.successText, { color: theme.success }]}>Room change logged and students notified.</Text></View> : null}
 
           <SectionHeader title="Class Assignment" />
           {assignments.length === 0 ? (
@@ -300,10 +284,16 @@ export default function FacultyDashboard() {
                     accessibilityRole="radio"
                     accessibilityState={{ selected }}
                     onPress={() => selectAssignment(assignment)}
-                    style={[styles.assignmentOption, selected && styles.assignmentOptionSelected]}>
+                    style={[
+                      styles.assignmentOption,
+                      {
+                        backgroundColor: selected ? theme.softBlue : theme.card,
+                        borderColor: selected ? theme.primary : theme.border,
+                      },
+                    ]}>
                     <View style={styles.assignmentCopy}>
-                      <Text style={styles.assignmentTitle}>{assignment.subject_code} - {assignment.subject_title}</Text>
-                      <Text style={styles.assignmentMeta}>Section {assignment.section_code} · {assignment.room || 'Room not set'}</Text>
+                      <Text style={[styles.assignmentTitle, { color: theme.navy }]}>{assignment.subject_code} - {assignment.subject_title}</Text>
+                      <Text style={[styles.assignmentMeta, { color: theme.textSecondary }]}>Section {assignment.section_code} · {assignment.room || 'Room not set'}</Text>
                     </View>
                     <StatusBadge label={selected ? 'Selected' : 'Select'} tone={selected ? 'success' : 'muted'} />
                   </Pressable>
@@ -317,11 +307,11 @@ export default function FacultyDashboard() {
             { label: 'New Room *', value: newRoom, set: setNewRoom, placeholder: 'e.g. Main Lib 2' },
           ].map(field => (
             <View key={field.label} style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>{field.label}</Text>
+              <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>{field.label}</Text>
               <TextInput
-                style={styles.input}
                 placeholder={field.placeholder}
-                placeholderTextColor={Academic.textSecondary}
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.input, { color: theme.navy, backgroundColor: theme.card, borderColor: theme.border }]}
                 value={field.value}
                 onChangeText={field.set}
               />
@@ -329,11 +319,11 @@ export default function FacultyDashboard() {
           ))}
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Reason (optional)</Text>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Reason (optional)</Text>
             <TextInput
-              style={styles.textarea}
+              style={[styles.textarea, { color: theme.navy, backgroundColor: theme.card, borderColor: theme.border }]}
               placeholder="e.g. Room maintenance"
-              placeholderTextColor={Academic.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               value={reason}
               onChangeText={setReason}
               multiline
@@ -343,7 +333,7 @@ export default function FacultyDashboard() {
           </View>
 
           <Pressable
-            style={({ pressed }) => [styles.primaryButton, (pressed || posting) && styles.pressed]}
+            style={({ pressed }) => [styles.primaryButton, { backgroundColor: theme.primary }, (pressed || posting) && styles.pressed]}
             onPress={handleRoomChange}
             disabled={posting || assignments.length === 0}>
             {posting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Submit Room Change</Text>}
@@ -358,7 +348,7 @@ export default function FacultyDashboard() {
       <AppBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         contentContainerStyle={styles.scroll}>
         <RoleHeroHeader
           label="CAS Assist Faculty"
@@ -379,20 +369,28 @@ export default function FacultyDashboard() {
             icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
             tone="warning"
           />
+          <MetricCard
+            label="Active assignments"
+            value={assignments.length}
+            icon={{ ios: 'book.closed', android: 'menu_book', web: 'menu_book' }}
+            tone="success"
+          />
         </View>
 
         <SectionHeader title="Faculty Actions" />
-        <View style={styles.quickGrid}>
-          <QuickAction
+        <View style={dashboardActionGridStyles.grid}>
+          <DashboardActionCard
             label="Log Room Change"
+            caption="Notify students using an active assignment."
             icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
             onPress={() => {
               if (assignments.length === 1) selectAssignment(assignments[0]);
               setView('room-change');
             }}
           />
-          <QuickAction
+          <DashboardActionCard
             label="Department Updates"
+            caption="Review published CAS announcements."
             icon={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
             onPress={() => router.navigate('/explore')}
           />
@@ -414,20 +412,20 @@ export default function FacultyDashboard() {
                 <View style={styles.scheduleIcon}>
                   <AcademicIcon
                     name={{ ios: 'book.closed', android: 'menu_book', web: 'menu_book' }}
-                    color={Academic.primary}
+                    color={theme.primary}
                     size={21}
                   />
                 </View>
                 <View style={styles.scheduleInfo}>
-                  <Text style={styles.scheduleTitle} numberOfLines={1}>
+                  <Text style={[styles.scheduleTitle, { color: theme.navy }]} numberOfLines={1}>
                     {schedule.subject_code} - {schedule.subject_name}
                   </Text>
-                  <Text style={styles.scheduleMeta}>
+                  <Text style={[styles.scheduleMeta, { color: theme.textSecondary }]}>
                     Section {schedule.section} - {schedule.room}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.scheduleTime}>
+              <Text style={[styles.scheduleTime, { color: theme.primary }]}>
                 {formatTime(schedule.time_start)} - {formatTime(schedule.time_end)}
               </Text>
             </SurfaceCard>
@@ -446,16 +444,16 @@ export default function FacultyDashboard() {
             <SurfaceCard key={change.id} style={styles.roomCard} accent="warning">
               <View style={styles.roomCardTop}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.roomTitle} numberOfLines={1}>
+                  <Text style={[styles.roomTitle, { color: theme.navy }]} numberOfLines={1}>
                     {`${change.original_room} -> ${change.new_room}`}
                   </Text>
-                  <Text style={styles.roomSub}>
+                  <Text style={[styles.roomSub, { color: theme.textSecondary }]}>
                     {[change.subject_code, change.section_code].filter(Boolean).join(' - ') || 'Room relocation'}
                   </Text>
                 </View>
                 <StatusBadge label={`${change.ack_count} ack${change.ack_count === 1 ? '' : 's'}`} tone="blue" />
               </View>
-              <Text style={styles.roomTime}>{formatDate(change.effective_at)}</Text>
+              <Text style={[styles.roomTime, { color: theme.textSecondary }]}>{formatDate(change.effective_at)}</Text>
             </SurfaceCard>
           ))
         )}
@@ -477,11 +475,11 @@ export default function FacultyDashboard() {
                 accessibilityState={{ expanded }}
                 onPress={() => setExpandedAnnouncementId(current => current === item.id ? null : item.id)}>
                 <SurfaceCard style={styles.announcementCard}>
-                  <Text style={styles.announcementTitle} numberOfLines={expanded ? undefined : 1}>{item.title}</Text>
-                  <Text style={styles.announcementBody} numberOfLines={expanded ? undefined : 2}>{item.body}</Text>
+                  <Text style={[styles.announcementTitle, { color: theme.navy }]} numberOfLines={expanded ? undefined : 1}>{item.title}</Text>
+                  <Text style={[styles.announcementBody, { color: theme.textSecondary }]} numberOfLines={expanded ? undefined : 2}>{item.body}</Text>
                   <View style={styles.announcementFooter}>
-                    <Text style={styles.announcementDate}>{formatDate(item.publish_at)}</Text>
-                    <Text style={styles.expandText}>{expanded ? 'Show less' : 'Read full announcement'}</Text>
+                    <Text style={[styles.announcementDate, { color: theme.textSecondary }]}>{formatDate(item.publish_at)}</Text>
+                    <Text style={[styles.expandText, { color: theme.primary }]}>{expanded ? 'Show less' : 'Read full announcement'}</Text>
                   </View>
                 </SurfaceCard>
               </Pressable>
@@ -505,27 +503,6 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  quickAction: {
-    flexGrow: 1,
-    flexBasis: 150,
-    minHeight: 88,
-    borderRadius: 16,
-    padding: 12,
-    gap: 8,
-    backgroundColor: Academic.card,
-    borderWidth: 1,
-    borderColor: Academic.border,
-  },
-  quickIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Academic.softBlue,
-  },
-  quickLabel: { color: Academic.navy, fontSize: 13, lineHeight: 17, fontWeight: '900' },
   assignmentList: { gap: Spacing.two },
   assignmentOption: {
     minHeight: 68,

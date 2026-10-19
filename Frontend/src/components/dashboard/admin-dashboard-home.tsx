@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   Academic,
-  AcademicIcon,
   AppBackdrop,
   EmptyState,
   MetricCard,
@@ -22,8 +20,10 @@ import {
   StatusBadge,
   SurfaceCard,
 } from '@/components/ui/academic-ui';
+import { DashboardActionCard, dashboardActionGridStyles } from '@/components/dashboard/dashboard-primitives';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 interface RecentUser {
@@ -45,28 +45,10 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function AdminAction({
-  label,
-  icon,
-  onPress,
-}: {
-  label: string;
-  icon: Parameters<typeof AcademicIcon>[0]['name'];
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.actionCard, pressed && styles.pressed]}>
-      <View style={styles.actionIcon}>
-        <AcademicIcon name={icon} color={Academic.primary} size={22} />
-      </View>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </Pressable>
-  );
-}
-
 export default function AdminDashboardHome() {
   const router = useRouter();
   const { profile } = useAuth();
+  const theme = useTheme();
   const [stats, setStats] = useState({ users: 0, openTickets: 0, actionReq: 0, announcements: 0 });
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,11 +88,11 @@ export default function AdminDashboardHome() {
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <AppBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         contentContainerStyle={styles.scroll}>
         <RoleHeroHeader
           label="CAS Assist Administration"
@@ -152,29 +134,34 @@ export default function AdminDashboardHome() {
         )}
 
         <SectionHeader title="Admin Tools" action="Open panel" onAction={() => router.navigate('/admin')} />
-        <View style={styles.actionGrid}>
-          <AdminAction
+        <View style={dashboardActionGridStyles.grid}>
+          <DashboardActionCard
             label="Ticket Operations"
+            caption="Review and update active requests."
             icon={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'tickets' } })}
           />
-          <AdminAction
+          <DashboardActionCard
             label="Post Announcement"
+            caption="Publish department-wide updates."
             icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'announce' } })}
           />
-          <AdminAction
+          <DashboardActionCard
             label="Document Requests"
+            caption="Open the authorized document queue."
             icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'documents' } })}
           />
-          <AdminAction
+          <DashboardActionCard
             label="Users"
+            caption="Manage account registry entries."
             icon={{ ios: 'person.crop.circle.badge.checkmark', android: 'manage_accounts', web: 'manage_accounts' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'users' } })}
           />
-          <AdminAction
+          <DashboardActionCard
             label="System Analytics"
+            caption="Review existing service metrics."
             icon={{ ios: 'chart.bar.xaxis', android: 'analytics', web: 'analytics' }}
             onPress={() => router.navigate('/analytics')}
           />
@@ -190,13 +177,13 @@ export default function AdminDashboardHome() {
         ) : (
           recentUsers.map(user => (
             <SurfaceCard key={user.id} style={styles.userCard}>
-              <View style={styles.userAvatar}>
-                <Text style={styles.userInitial}>{(user.display_name || 'U')[0].toUpperCase()}</Text>
+              <View style={[styles.userAvatar, { backgroundColor: theme.softBlue }]}>
+                <Text style={[styles.userInitial, { color: theme.primary }]}>{(user.display_name || 'U')[0].toUpperCase()}</Text>
               </View>
               <View style={styles.userInfo}>
-                <Text style={styles.userName} numberOfLines={1}>{user.display_name}</Text>
-                <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
-                <Text style={styles.userDate}>Joined {formatDate(user.created_at)}</Text>
+                <Text style={[styles.userName, { color: theme.navy }]} numberOfLines={1}>{user.display_name}</Text>
+                <Text style={[styles.userEmail, { color: theme.textSecondary }]} numberOfLines={1}>{user.email}</Text>
+                <Text style={[styles.userDate, { color: theme.textSecondary }]}>Joined {formatDate(user.created_at)}</Text>
               </View>
               <StatusBadge label={user.role.replace('_', ' ')} tone={ROLE_TONE[user.role] ?? 'muted'} />
             </SurfaceCard>
@@ -220,27 +207,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   loader: { marginTop: Spacing.four },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
-  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  actionCard: {
-    flexGrow: 1,
-    flexBasis: 150,
-    minHeight: 88,
-    borderRadius: 16,
-    padding: 12,
-    gap: 8,
-    backgroundColor: Academic.card,
-    borderWidth: 1,
-    borderColor: Academic.border,
-  },
-  actionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Academic.softBlue,
-  },
-  actionLabel: { color: Academic.navy, fontSize: 13, lineHeight: 17, fontWeight: '900' },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',

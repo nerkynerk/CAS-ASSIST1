@@ -11,7 +11,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AcademicIcon, AppBackdrop, type AcademicIconName } from '@/components/ui/academic-ui';
+import {
+  AcademicIcon,
+  AppBackdrop,
+  EmptyState,
+  MetricCard,
+  RoleHeroHeader,
+  SectionHeader,
+  StatusBadge,
+  type AcademicIconName,
+} from '@/components/ui/academic-ui';
+import { DashboardActionCard, dashboardActionGridStyles } from '@/components/dashboard/dashboard-primitives';
 import { BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
@@ -25,7 +35,6 @@ const BORDER = BrandColors.border;
 const SOFT_BLUE = BrandColors.softBlue;
 const GREEN = '#16A34A';
 const SOFT_GREEN = 'rgba(162,213,171,0.40)';
-const ORANGE = '#F97316';
 
 interface Announcement {
   id: string;
@@ -127,48 +136,15 @@ function DashboardIcon({
   return <AcademicIcon name={name} size={size} color={color} />;
 }
 
-function HeroHeader({
-  firstName,
-  readOnly,
-}: {
-  firstName: string;
-  readOnly: boolean;
-}) {
-  return (
-    <View style={styles.hero}>
-      <View style={styles.heroBackdropOne} />
-      <View style={styles.heroBackdropTwo} />
-      <View style={styles.heroContent}>
-        <View style={styles.heroCopy}>
-          <Text style={styles.heroLabel}>CAS Assist Student</Text>
-          <Text style={styles.heroTitle}>Hello, {firstName}.</Text>
-          <Text style={styles.heroSubtitle}>Here is your academic support overview.</Text>
-          {readOnly && (
-            <View style={styles.readOnlyBadge}>
-              <Text style={styles.readOnlyText}>Read-only</Text>
-            </View>
-          )}
-        </View>
-        <Pressable style={({ pressed }) => [styles.notificationButton, pressed && styles.pressed]}>
-          <DashboardIcon
-            name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
-            color="#FFFFFF"
-            size={26}
-          />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
 function ActiveRequestCard({ ticket }: { ticket: ActiveTicket }) {
+  const colors = useTheme();
   const color = STATUS_COLOR[ticket.status] ?? '#6B7280';
 
   return (
-    <View style={styles.requestCard}>
+    <View style={[styles.requestCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.requestTopRow}>
-        <View style={styles.referencePill}>
-          <Text style={styles.referenceText}>{getTicketReference(ticket.id)}</Text>
+        <View style={[styles.referencePill, { backgroundColor: colors.muted }]}>
+          <Text style={[styles.referenceText, { color: colors.textSecondary }]}>{getTicketReference(ticket.id)}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: color + '14' }]}>
           <Text style={[styles.statusBadgeText, { color }]}>
@@ -176,19 +152,19 @@ function ActiveRequestCard({ ticket }: { ticket: ActiveTicket }) {
           </Text>
         </View>
       </View>
-      <Text style={styles.requestTitle} numberOfLines={2}>
+      <Text style={[styles.requestTitle, { color: colors.navy }]} numberOfLines={2}>
         {formatCategory(ticket.category)}
       </Text>
       <View style={styles.metaRow}>
         <DashboardIcon
           name={{ ios: 'clock', android: 'schedule', web: 'schedule' }}
-          color={MUTED}
+          color={colors.textSecondary}
           size={15}
         />
-        <Text style={styles.metaText} numberOfLines={1}>{statusText(ticket)}</Text>
+        <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{statusText(ticket)}</Text>
       </View>
       {ticket.priority && (
-        <Text style={styles.priorityText}>{formatCategory(ticket.priority)} priority</Text>
+        <Text style={[styles.priorityText, { color: colors.textTertiary }]}>{formatCategory(ticket.priority)} priority</Text>
       )}
     </View>
   );
@@ -205,43 +181,48 @@ function RoomChangeCard({
   acknowledging: boolean;
   onAcknowledge: () => void;
 }) {
+  const colors = useTheme();
   const courseTitle = [item.subject_code, item.section_code].filter(Boolean).join(' - ') || 'Class Update';
 
   return (
-    <View style={[styles.roomCard, isAcknowledged ? styles.roomCardDone : styles.roomCardUrgent]}>
+    <View style={[
+      styles.roomCard,
+      { backgroundColor: colors.card, borderColor: colors.border },
+      isAcknowledged ? { borderLeftColor: colors.success } : { borderLeftColor: colors.error },
+    ]}>
       <View style={styles.roomCardHeader}>
-        <View style={styles.locationIconBubble}>
+        <View style={[styles.locationIconBubble, { backgroundColor: colors.softBlue }]}>
           <DashboardIcon
             name={{ ios: 'location', android: 'location_on', web: 'location_on' }}
-            color={PRIMARY}
+            color={colors.primary}
             size={20}
           />
         </View>
         <View style={styles.roomHeaderText}>
-          <Text style={styles.roomTitle} numberOfLines={1}>{courseTitle}</Text>
-          <Text style={styles.roomTime}>{formatRelative(item.effective_at)}</Text>
+          <Text style={[styles.roomTitle, { color: colors.navy }]} numberOfLines={1}>{courseTitle}</Text>
+          <Text style={[styles.roomTime, { color: colors.textTertiary }]}>{formatRelative(item.effective_at)}</Text>
         </View>
         {isAcknowledged && (
           <DashboardIcon
             name={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
-            color={GREEN}
+            color={colors.success}
             size={22}
           />
         )}
       </View>
 
-      <View style={styles.roomPath}>
-        <Text style={styles.oldRoom} numberOfLines={1}>{item.original_room}</Text>
+      <View style={[styles.roomPath, { backgroundColor: colors.muted }]}>
+        <Text style={[styles.oldRoom, { color: colors.textSecondary }]} numberOfLines={1}>{item.original_room}</Text>
         <DashboardIcon
           name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-          color="#8EA0BA"
+          color={colors.textTertiary}
           size={16}
         />
-        <Text style={styles.newRoom} numberOfLines={1}>{item.new_room}</Text>
+        <Text style={[styles.newRoom, { color: colors.primary }]} numberOfLines={1}>{item.new_room}</Text>
       </View>
 
       {(item.reason || item.faculty_id) && (
-        <Text style={styles.roomNote} numberOfLines={2}>
+        <Text style={[styles.roomNote, { color: colors.textSecondary }]} numberOfLines={2}>
           {[item.reason, item.faculty_id && `Posted by ${item.faculty_id.display_name}`]
             .filter(Boolean)
             .join(' - ')}
@@ -249,13 +230,13 @@ function RoomChangeCard({
       )}
 
       {isAcknowledged ? (
-        <View style={styles.ackDone}>
+        <View style={[styles.ackDone, { backgroundColor: colors.successBg, borderColor: colors.success }]}>
           <DashboardIcon
             name={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
-            color={GREEN}
+            color={colors.success}
             size={16}
           />
-          <Text style={styles.ackDoneText}>Acknowledged</Text>
+          <Text style={[styles.ackDoneText, { color: colors.success }]}>Acknowledged</Text>
         </View>
       ) : (
         <Pressable
@@ -263,6 +244,7 @@ function RoomChangeCard({
           disabled={acknowledging}
           style={({ pressed }) => [
             styles.ackButton,
+            { backgroundColor: colors.primary },
             (pressed || acknowledging) && styles.pressed,
           ]}>
           {acknowledging ? (
@@ -273,23 +255,6 @@ function RoomChangeCard({
         </Pressable>
       )}
     </View>
-  );
-}
-
-function DashboardAction({
-  label,
-  icon,
-  onPress,
-}: {
-  label: string;
-  icon: SymbolName;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable style={({ pressed }) => [styles.actionChip, pressed && styles.pressed]} onPress={onPress}>
-      <DashboardIcon name={icon} color={PRIMARY} size={18} />
-      <Text style={styles.actionChipText}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -409,6 +374,7 @@ export default function StudentDashboard() {
   }, [load]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const unacknowledgedRoomChanges = roomChanges.filter(change => !acknowledgedIds.has(change.id)).length;
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <AppBackdrop />
@@ -416,27 +382,49 @@ export default function StudentDashboard() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
         contentContainerStyle={styles.scroll}>
-        <HeroHeader
-          firstName={firstName}
-          readOnly={profile?.state === 'archived_read_only'}
+        <RoleHeroHeader
+          label="CAS Assist Student"
+          title={`Hello, ${firstName}`}
+          subtitle={profile?.state === 'archived_read_only'
+            ? 'Your account is read-only while you review your academic history.'
+            : 'Your academic support overview, requests, and class updates.'}
         />
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Active Requests</Text>
-          <Pressable onPress={() => router.navigate('/tickets')} hitSlop={8}>
-            <Text style={styles.sectionAction}>View all</Text>
-          </Pressable>
+        {profile?.state === 'archived_read_only' ? <StatusBadge label="Read-only account" tone="warning" /> : null}
+
+        <View style={styles.metricsRow}>
+          <MetricCard
+            label="Requests shown"
+            value={loading ? '—' : activeTickets.length}
+            icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }}
+            tone="blue"
+          />
+          <MetricCard
+            label="Recent room changes"
+            value={loading ? '—' : roomChanges.length}
+            icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
+            tone="warning"
+          />
+          <MetricCard
+            label="Recent updates"
+            value={loading ? '—' : announcements.length}
+            icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
+            tone="success"
+          />
         </View>
+
+        <SectionHeader title="Active Requests" action="View all" onAction={() => router.navigate('/tickets')} />
 
         {loading ? (
           <View style={styles.loadingCard}>
-            <ActivityIndicator color={PRIMARY} />
+            <ActivityIndicator color={theme.primary} />
           </View>
         ) : activeTickets.length === 0 ? (
-          <View style={styles.emptyPanel}>
-            <Text style={styles.emptyTitle}>No active requests</Text>
-            <Text style={styles.emptyText}>Your submitted requests will appear here.</Text>
-          </View>
+          <EmptyState
+            title="No active requests"
+            message="Your submitted requests will appear here."
+            icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }}
+          />
         ) : (
           <ScrollView
             horizontal
@@ -448,24 +436,17 @@ export default function StudentDashboard() {
           </ScrollView>
         )}
 
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Room Changes</Text>
-            {roomChanges.filter(change => !acknowledgedIds.has(change.id)).length > 0 && (
-              <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>
-                  {roomChanges.filter(change => !acknowledgedIds.has(change.id)).length} New
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
+        <SectionHeader
+          title="Room Changes"
+          badge={unacknowledgedRoomChanges > 0 ? `${unacknowledgedRoomChanges} new` : undefined}
+        />
 
         {roomChanges.length === 0 ? (
-          <View style={styles.emptyPanel}>
-            <Text style={styles.emptyTitle}>No room changes</Text>
-            <Text style={styles.emptyText}>Class relocation notices from the last 24 hours will show here.</Text>
-          </View>
+          <EmptyState
+            title="No room changes"
+            message="Class relocation notices from the last 24 hours will show here."
+            icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
+          />
         ) : (
           roomChanges.map(change => (
             <RoomChangeCard
@@ -478,49 +459,63 @@ export default function StudentDashboard() {
           ))
         )}
 
-        <View style={styles.secondaryActions}>
-          <DashboardAction
+        <View style={dashboardActionGridStyles.grid}>
+          <DashboardActionCard
             label="News"
+            caption="Read department announcements."
             icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
             onPress={() => router.navigate('/explore')}
           />
-          <DashboardAction
+          <DashboardActionCard
             label="Documents"
+            caption="Open your available documents."
             icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
             onPress={() => router.navigate('/documents')}
           />
+          <DashboardActionCard
+            label="FAQ"
+            caption="Find common CAS answers."
+            icon={{ ios: 'questionmark.circle', android: 'info', web: 'info' }}
+            onPress={() => router.navigate('/faq')}
+          />
+          <DashboardActionCard
+            label="AI Assistant"
+            caption="Ask the existing CAS assistant."
+            icon={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
+            onPress={() => router.navigate('/chatbot')}
+          />
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Updates</Text>
-          <Pressable onPress={() => router.navigate('/explore')} hitSlop={8}>
-            <Text style={styles.sectionAction}>See all</Text>
-          </Pressable>
-        </View>
+        <SectionHeader title="Recent Updates" action="See all" onAction={() => router.navigate('/explore')} />
 
         {announcements.length === 0 ? (
-          <View style={styles.emptyPanel}>
-            <Text style={styles.emptyTitle}>No announcements yet</Text>
-            <Text style={styles.emptyText}>Official CAS updates will appear here.</Text>
-          </View>
+          <EmptyState
+            title="No announcements yet"
+            message="Official CAS updates will appear here."
+            icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
+          />
         ) : (
           announcements.map(announcement => (
             <Pressable
               key={announcement.id}
-              style={({ pressed }) => [styles.announcementCard, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.announcementCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+                pressed && styles.pressed,
+              ]}
               onPress={() => router.navigate('/explore')}>
               <View style={styles.announcementTop}>
-                <Text style={styles.announcementTitle} numberOfLines={1}>{announcement.title}</Text>
+                <Text style={[styles.announcementTitle, { color: theme.navy }]} numberOfLines={1}>{announcement.title}</Text>
                 {announcement.pinned && (
                   <DashboardIcon
                     name={{ ios: 'pin', android: 'push_pin', web: 'push_pin' }}
-                    color={ORANGE}
+                    color={theme.warning}
                     size={16}
                   />
                 )}
               </View>
-              <Text style={styles.announcementBody} numberOfLines={2}>{announcement.body}</Text>
-              <Text style={styles.announcementDate}>{formatDate(announcement.publish_at)}</Text>
+              <Text style={[styles.announcementBody, { color: theme.textSecondary }]} numberOfLines={2}>{announcement.body}</Text>
+              <Text style={[styles.announcementDate, { color: theme.textTertiary }]}>{formatDate(announcement.publish_at)}</Text>
             </Pressable>
           ))
         )}
@@ -539,6 +534,7 @@ const styles = StyleSheet.create({
     paddingBottom: 152,
     gap: Spacing.two,
   },
+  metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   hero: {
     minHeight: 210,
