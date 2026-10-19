@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import {
   AcademicIcon,
@@ -32,12 +32,14 @@ export function DashboardActionCard({
   icon,
   onPress,
   tone = 'blue',
+  size = 'compact',
 }: {
   label: string;
   caption?: string;
   icon: AcademicIconName;
   onPress: () => void;
   tone?: DashboardActionTone;
+  size?: 'wide' | 'compact';
 }) {
   const { colors } = useAppTheme();
   const [hovered, setHovered] = useState(false);
@@ -56,6 +58,7 @@ export function DashboardActionCard({
       onBlur={() => setFocused(false)}
       style={({ pressed }) => [
         styles.actionPressable,
+        size === 'wide' && styles.actionWide,
         hovered && styles.actionHovered,
         focused && { outlineStyle: 'solid', outlineWidth: 2, outlineColor: colors.primary, outlineOffset: 2 },
         pressed && styles.actionPressed,
@@ -88,13 +91,59 @@ export const dashboardActionGridStyles = StyleSheet.create({
   },
 });
 
+export type BentoSize = 'wide' | 'medium' | 'compact';
+
+/**
+ * A platform-safe bento layout. It uses flex-basis instead of web-only grid
+ * properties so the same information hierarchy reflows on native screens.
+ */
+export function BentoGrid({ children, style }: { children: ReactNode; style?: object }) {
+  return <View style={[styles.bentoGrid, style]}>{children}</View>;
+}
+
+export function BentoPanel({
+  children,
+  size = 'medium',
+  style,
+}: {
+  children: ReactNode;
+  size?: BentoSize;
+  style?: object;
+}) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
+  const isDesktop = width >= 980;
+  const basis = isMobile
+    ? '100%'
+    : size === 'wide'
+      ? isDesktop ? '64%' : '100%'
+      : size === 'compact'
+        ? isDesktop ? '31%' : '48%'
+        : isDesktop ? '47%' : '48%';
+
+  return <View style={[styles.bentoPanel, { flexBasis: basis }, style]}>{children}</View>;
+}
+
 const styles = StyleSheet.create({
+  bentoGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'stretch',
+    gap: Spacing.three,
+  },
+  bentoPanel: {
+    minWidth: 0,
+    flexGrow: 1,
+  },
   actionPressable: {
     flexGrow: 1,
     flexBasis: 210,
+    flexShrink: 1,
     minWidth: 0,
     borderRadius: Radius.card,
   },
+  actionWide: { flexBasis: 430 },
   actionHovered: {
     transform: [{ translateY: -2 }],
   },

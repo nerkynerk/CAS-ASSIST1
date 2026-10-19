@@ -17,6 +17,7 @@ import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { Academic, AcademicIcon, AppBackdrop, IconButton, StatusBadge } from '@/components/ui/academic-ui';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import RoleGuard from '@/components/role-guard';
 import { apiPost } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
@@ -60,6 +61,7 @@ const SUGGESTIONS: Record<string, string[]> = {
 
 function MessageBubble({ message, onFeedback }: { message: Message; onFeedback: (message: Message, helpful: boolean) => void }) {
   const isUser = message.role === 'user';
+  const colors = useTheme();
 
   return (
     <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
@@ -67,17 +69,17 @@ function MessageBubble({ message, onFeedback }: { message: Message; onFeedback: 
         <View style={styles.botAvatar}>
           <AcademicIcon
             name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
-            color={Academic.primary}
+            color={colors.primary}
             size={18}
           />
         </View>
       ) : null}
-      <View style={[styles.bubble, isUser ? styles.userBubble : styles.assistantBubble]}>
-        <Text style={[styles.messageText, isUser && styles.userMessageText]}>{message.content}</Text>
+      <View style={[styles.bubble, isUser ? styles.userBubble : styles.assistantBubble, { backgroundColor: isUser ? colors.primary : colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.messageText, { color: isUser ? '#FFFFFF' : colors.navy }]}>{message.content}</Text>
         {!isUser && message.sourceTitle ? (
           <View style={styles.sourceRow}>
             <AcademicIcon name={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} color={Academic.success} size={14} />
-            <Text style={styles.sourceText} numberOfLines={2}>
+            <Text style={[styles.sourceText, { color: colors.success }]} numberOfLines={2}>
               {message.sourceTitle} · {Math.round((message.confidence ?? 0) * 100)}% match
             </Text>
           </View>
@@ -85,15 +87,15 @@ function MessageBubble({ message, onFeedback }: { message: Message; onFeedback: 
         {!isUser && message.queryId ? (
           <View style={styles.feedbackRow}>
             {message.feedback ? (
-              <Text style={styles.feedbackThanks}>Feedback recorded</Text>
+              <Text style={[styles.feedbackThanks, { color: colors.success }]}>Feedback recorded</Text>
             ) : (
               <>
-                <Text style={styles.feedbackPrompt}>Was this helpful?</Text>
-                <Pressable onPress={() => onFeedback(message, true)} style={styles.feedbackButton}>
-                  <Text style={styles.feedbackButtonText}>Yes</Text>
+                <Text style={[styles.feedbackPrompt, { color: colors.textSecondary }]}>Was this helpful?</Text>
+                <Pressable onPress={() => onFeedback(message, true)} style={[styles.feedbackButton, { backgroundColor: colors.softBlue }]}>
+                  <Text style={[styles.feedbackButtonText, { color: colors.primary }]}>Yes</Text>
                 </Pressable>
-                <Pressable onPress={() => onFeedback(message, false)} style={styles.feedbackButton}>
-                  <Text style={styles.feedbackButtonText}>No</Text>
+                <Pressable onPress={() => onFeedback(message, false)} style={[styles.feedbackButton, { backgroundColor: colors.softBlue }]}>
+                  <Text style={[styles.feedbackButtonText, { color: colors.primary }]}>No</Text>
                 </Pressable>
               </>
             )}
@@ -101,7 +103,7 @@ function MessageBubble({ message, onFeedback }: { message: Message; onFeedback: 
         ) : null}
         {message.ticketId ? (
           <View style={styles.ticketNotice}>
-            <Text style={styles.ticketNoticeText}>Ticket created. CAS staff will follow up shortly.</Text>
+            <Text style={[styles.ticketNoticeText, { color: colors.warning } ]}>Ticket created. CAS staff will follow up shortly.</Text>
           </View>
         ) : null}
       </View>
@@ -113,6 +115,7 @@ function ChatbotScreenContent() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
+  const colors = useTheme();
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -193,23 +196,23 @@ function ChatbotScreenContent() {
 
   return (
     <Animated.View entering={FadeIn.duration(180).reduceMotion(ReduceMotion.System)} style={styles.flex}>
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <View style={styles.header}>
         <IconButton
           icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
           onPress={() => router.back()}
           label="Go back"
-          bg={Academic.muted}
-          color={Academic.textSecondary}
+          bg={colors.muted}
+          color={colors.textSecondary}
         />
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>CAS Assist Helpdesk</Text>
-          <Text style={styles.headerSub}>Closed-domain Tier-1 assistant</Text>
+          <Text style={[styles.headerTitle, { color: colors.navy }]}>CAS Assist Helpdesk</Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Closed-domain Tier-1 assistant</Text>
         </View>
-        <Pressable onPress={() => router.push('/faq')} style={styles.faqButton} accessibilityRole="button">
-          <AcademicIcon name={{ ios: 'questionmark.circle', android: 'info', web: 'info' }} color={Academic.primary} size={18} />
-          <Text style={styles.faqButtonText}>FAQs</Text>
+        <Pressable onPress={() => router.push('/faq')} style={[styles.faqButton, { backgroundColor: colors.softBlue }]} accessibilityRole="button">
+          <AcademicIcon name={{ ios: 'questionmark.circle', android: 'info', web: 'info' }} color={colors.primary} size={18} />
+          <Text style={[styles.faqButtonText, { color: colors.primary }]}>FAQs</Text>
         </Pressable>
       </View>
 
@@ -230,10 +233,10 @@ function ChatbotScreenContent() {
               <View style={styles.noticeBanner}>
                 <AcademicIcon
                   name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                  color={Academic.primary}
+                  color={colors.primary}
                   size={18}
                 />
-                <Text style={styles.noticeText}>
+                <Text style={[styles.noticeText, { color: colors.navy }]}>
                   Answers come only from approved CAS Assist articles. The assistant will defer when confidence is low.
                 </Text>
               </View>
@@ -244,7 +247,7 @@ function ChatbotScreenContent() {
                       key={text}
                       onPress={() => sendText(text)}
                       style={({ pressed }) => [styles.suggestionChip, pressed && styles.pressed]}>
-                      <Text style={styles.suggestionText}>{text}</Text>
+                      <Text style={[styles.suggestionText, { color: colors.primary }]}>{text}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -258,7 +261,7 @@ function ChatbotScreenContent() {
                 <View style={styles.botAvatar}>
                   <AcademicIcon
                     name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
-                    color={Academic.primary}
+                    color={colors.primary}
                     size={18}
                   />
                 </View>
@@ -271,11 +274,11 @@ function ChatbotScreenContent() {
           }
         />
 
-        <View style={[styles.composer, { paddingBottom: Math.max(12, insets.bottom) }]}>
+        <View style={[styles.composer, { paddingBottom: Math.max(12, insets.bottom), backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text, backgroundColor: colors.muted }]}
             placeholder="Type your message..."
-            placeholderTextColor={Academic.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             value={input}
             onChangeText={setInput}
             multiline

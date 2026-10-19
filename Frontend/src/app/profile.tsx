@@ -103,7 +103,7 @@ export default function ProfileScreen() {
 
         <SurfaceCard style={styles.identityCard}>
           {!editing ? (
-            <Text style={styles.displayName}>{profile?.display_name ?? 'No name set'}</Text>
+            <Text style={[styles.displayName, { color: theme.navy }]}>{profile?.display_name ?? 'No name set'}</Text>
           ) : (
             <TextInput
               style={[
@@ -178,8 +178,8 @@ export default function ProfileScreen() {
                         <AcademicIcon name={option.icon} color={selected ? Academic.primary : Academic.textSecondary} size={20} />
                       </View>
                       <View style={styles.themeCopy}>
-                        <Text style={styles.themeLabel}>{option.label}</Text>
-                        <Text style={styles.themeDescription}>{option.description}</Text>
+                        <Text style={[styles.themeLabel, { color: theme.navy }]}>{option.label}</Text>
+                        <Text style={[styles.themeDescription, { color: theme.textSecondary }]}>{option.description}</Text>
                       </View>
                       <AcademicIcon
                         name={selected
@@ -209,12 +209,12 @@ export default function ProfileScreen() {
           <Pressable
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
             onPress={() => { setEditing(true); setDisplayName(profile?.display_name ?? ''); }}>
-            <Text style={styles.secondaryButtonText}>Edit Display Name</Text>
+            <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Edit Display Name</Text>
           </Pressable>
         ) : (
           <View style={styles.editRow}>
             <Pressable style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]} onPress={() => setEditing(false)}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={[styles.cancelButtonText, { color: theme.textSecondary }]}>Cancel</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.saveButton, (pressed || saving) && styles.pressed]}
@@ -225,8 +225,8 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <Pressable style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]} onPress={signOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
+        <Pressable style={({ pressed }) => [styles.signOutButton, { backgroundColor: theme.errorBg }, pressed && styles.pressed]} onPress={signOut}>
+          <Text style={[styles.signOutText, { color: theme.error }]}>Sign Out</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -242,13 +242,14 @@ function InfoRow({
   label: string;
   value: string;
 }) {
+  const colors = useTheme();
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoLeft}>
-        <AcademicIcon name={icon} color={Academic.textSecondary} size={18} />
-        <Text style={styles.infoLabel}>{label}</Text>
+        <AcademicIcon name={icon} color={colors.textSecondary} size={18} />
+        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
       </View>
-      <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
+      <Text style={[styles.infoValue, { color: colors.navy }]} numberOfLines={2}>{value}</Text>
     </View>
   );
 }

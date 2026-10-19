@@ -135,9 +135,10 @@ export default function AdminDashboardHome() {
 
         <SectionHeader title="Admin Tools" action="Open panel" onAction={() => router.navigate('/admin')} />
         <View style={dashboardActionGridStyles.grid}>
-          <DashboardActionCard
-            label="Ticket Operations"
-            caption="Review and update active requests."
+            <DashboardActionCard
+              label="Ticket Operations"
+              caption="Review and update active requests."
+              size="wide"
             icon={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'tickets' } })}
           />

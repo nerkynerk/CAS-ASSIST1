@@ -16,6 +16,8 @@ import {
   AcademicIcon,
   AppBackdrop,
   EmptyState,
+  MetricCard,
+  RoleHeroHeader,
   SectionHeader,
   StatusBadge,
   SurfaceCard,
@@ -23,7 +25,9 @@ import {
 } from '@/components/ui/academic-ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
+import { BentoGrid, BentoPanel } from '@/components/dashboard/dashboard-primitives';
 
 interface Announcement {
   id: string;
@@ -65,43 +69,44 @@ function RoomUpdateCard({
   acknowledging: boolean;
   onAcknowledge: () => void;
 }) {
+  const colors = useTheme();
   return (
     <SurfaceCard accent={acknowledged ? 'success' : 'error'} style={styles.roomCard}>
       <View style={styles.roomHeader}>
         <View style={styles.roomTitleGroup}>
-          <Text style={styles.roomTitle} numberOfLines={1}>
+          <Text style={[styles.roomTitle, { color: colors.navy }]} numberOfLines={1}>
             {[item.subject_code, item.section_code].filter(Boolean).join(' - ') || 'Room Change'}
           </Text>
-          <Text style={styles.roomSub}>{formatRelative(item.effective_at)}</Text>
+          <Text style={[styles.roomSub, { color: colors.textSecondary }]}>{formatRelative(item.effective_at)}</Text>
         </View>
         {!acknowledged ? <StatusBadge label="Urgent" tone="error" /> : <StatusBadge label="Acknowledged" tone="success" />}
       </View>
-      <View style={styles.roomCompare}>
+      <View style={[styles.roomCompare, { backgroundColor: colors.muted }]}>
         <View style={styles.roomCol}>
-          <Text style={styles.roomLabel}>Previous Room</Text>
-          <Text style={styles.oldRoom} numberOfLines={1}>{item.original_room}</Text>
+          <Text style={[styles.roomLabel, { color: colors.textSecondary }]}>Previous Room</Text>
+          <Text style={[styles.oldRoom, { color: colors.textTertiary }]} numberOfLines={1}>{item.original_room}</Text>
         </View>
-        <View style={styles.pinBubble}>
+        <View style={[styles.pinBubble, { backgroundColor: colors.card }]}>
           <AcademicIcon
             name={{ ios: 'location', android: 'location_on', web: 'location_on' }}
-            color={Academic.primary}
+            color={colors.primary}
             size={18}
           />
         </View>
         <View style={styles.roomCol}>
-          <Text style={styles.roomLabel}>New Room</Text>
-          <Text style={styles.newRoom} numberOfLines={1}>{item.new_room}</Text>
+          <Text style={[styles.roomLabel, { color: colors.textSecondary }]}>New Room</Text>
+          <Text style={[styles.newRoom, { color: colors.primary }]} numberOfLines={1}>{item.new_room}</Text>
         </View>
       </View>
-      {item.reason ? <Text style={styles.roomReason} numberOfLines={2}>{item.reason}</Text> : null}
+      {item.reason ? <Text style={[styles.roomReason, { color: colors.textSecondary }]} numberOfLines={2}>{item.reason}</Text> : null}
       {acknowledged ? (
-        <View style={styles.ackState}>
+        <View style={[styles.ackState, { backgroundColor: colors.successBg }]}>
           <AcademicIcon
             name={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
-            color={Academic.success}
+            color={colors.success}
             size={17}
           />
-          <Text style={styles.ackStateText}>Acknowledged</Text>
+          <Text style={[styles.ackStateText, { color: colors.success }]}>Acknowledged</Text>
         </View>
       ) : (
         <Pressable
@@ -128,6 +133,7 @@ function AnnouncementCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const colors = useTheme();
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={onToggle}>
       <SurfaceCard style={styles.announcementCard}>
@@ -135,18 +141,18 @@ function AnnouncementCard({
           <View style={styles.announcementIcon}>
             <AcademicIcon
               name={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
-              color={Academic.primary}
+              color={colors.primary}
               size={20}
             />
           </View>
           <View style={styles.announcementText}>
-            <Text style={styles.announcementTitle} numberOfLines={expanded ? undefined : 2}>{item.title}</Text>
-            <Text style={styles.announcementDate}>{formatDate(item.publish_at)}</Text>
+            <Text style={[styles.announcementTitle, { color: colors.navy }]} numberOfLines={expanded ? undefined : 2}>{item.title}</Text>
+            <Text style={[styles.announcementDate, { color: colors.textSecondary }]}>{formatDate(item.publish_at)}</Text>
           </View>
           {item.pinned ? <StatusBadge label="Pinned" tone="warning" /> : null}
         </View>
-        <Text style={styles.announcementBody} numberOfLines={expanded ? undefined : 3}>{item.body}</Text>
-        <Text style={styles.expandText}>{expanded ? 'Show less' : 'Read full announcement'}</Text>
+        <Text style={[styles.announcementBody, { color: colors.textSecondary }]} numberOfLines={expanded ? undefined : 3}>{item.body}</Text>
+        <Text style={[styles.expandText, { color: colors.primary }]}>{expanded ? 'Show less' : 'Read full announcement'}</Text>
       </SurfaceCard>
     </Pressable>
   );
@@ -155,6 +161,7 @@ function AnnouncementCard({
 export default function UpdatesScreen() {
   const router = useRouter();
   const { profile } = useAuth();
+  const colors = useTheme();
   const [filter, setFilter] = useState<UpdateFilter>('all');
   const [expandedAnnouncementId, setExpandedAnnouncementId] = useState<string | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -289,32 +296,34 @@ export default function UpdatesScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         contentContainerStyle={styles.scroll}>
-        <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>Updates</Text>
+        <RoleHeroHeader
+          label={isStudent ? 'Student updates' : 'Department updates'}
+          title="Updates"
+          subtitle="Stay current with official announcements and academic changes."
+          right={liveTag ? <StatusBadge label="Live" tone="success" /> : undefined}
+        />
+        {canCreateAnnouncements ? (
           <View style={styles.pageHeaderActions}>
-            {liveTag ? <StatusBadge label="Live" tone="success" /> : null}
-            {canCreateAnnouncements ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Create announcement"
-                onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'announce' } })}
-                style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}>
-                <AcademicIcon
-                  name={{ ios: 'plus', android: 'add', web: 'add' }}
-                  color="#FFFFFF"
-                  size={17}
-                />
-                <Text style={styles.createButtonText}>Create</Text>
-              </Pressable>
-            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Create announcement"
+              onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'announce' } })}
+              style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}>
+              <AcademicIcon
+                name={{ ios: 'plus', android: 'add', web: 'add' }}
+                color="#FFFFFF"
+                size={17}
+              />
+              <Text style={styles.createButtonText}>Create announcement</Text>
+            </Pressable>
           </View>
-        </View>
+        ) : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
           {filters.map(item => {
@@ -323,25 +332,46 @@ export default function UpdatesScreen() {
               <Pressable
                 key={item.id}
                 onPress={() => setFilter(item.id)}
-                style={[styles.filterChip, active && styles.filterChipActive]}>
-                <Text style={[styles.filterText, active && styles.filterTextActive]}>{item.label}</Text>
+                style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.filterChipActive]}>
+                <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.filterTextActive]}>{item.label}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
 
+        <View style={styles.metricsRow}>
+          <MetricCard
+            label="Announcements"
+            value={announcements.length}
+            tone="blue"
+            icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
+          />
+          <MetricCard
+            label="Room changes"
+            value={roomChanges.length}
+            tone="warning"
+            icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
+          />
+          <MetricCard
+            label="Awaiting acknowledgement"
+            value={roomChanges.filter(change => !acknowledgedIds.has(change.id)).length}
+            tone="success"
+            icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
+          />
+        </View>
+
         {error ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           </View>
         ) : null}
 
         {loading ? (
-          <ActivityIndicator color={Academic.primary} style={styles.loader} />
+          <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : (
-          <>
+          <BentoGrid>
             {showRoom ? (
-              <>
+              <BentoPanel size="medium" style={styles.bentoSection}>
                 <SectionHeader
                   title="Room Changes"
                   badge={roomChanges.filter(change => !acknowledgedIds.has(change.id)).length
@@ -365,11 +395,11 @@ export default function UpdatesScreen() {
                     />
                   ))
                 )}
-              </>
+              </BentoPanel>
             ) : null}
 
             {showAnnouncements ? (
-              <>
+              <BentoPanel size="wide" style={styles.bentoSection}>
                 <SectionHeader title="Announcements" />
                 {announcements.length === 0 ? (
                   <EmptyState
@@ -387,9 +417,9 @@ export default function UpdatesScreen() {
                     />
                   ))
                 )}
-              </>
+              </BentoPanel>
             ) : null}
-          </>
+          </BentoGrid>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -427,6 +457,8 @@ const styles = StyleSheet.create({
   },
   createButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   filterRail: { gap: Spacing.two, paddingRight: Spacing.three },
+  metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  bentoSection: { gap: Spacing.three },
   filterChip: {
     paddingHorizontal: 16,
     paddingVertical: 10,

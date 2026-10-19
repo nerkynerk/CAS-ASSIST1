@@ -157,6 +157,7 @@ export default function StaffDashboard() {
           <DashboardActionCard
             label="Manage Queue"
             caption="Process existing assistance requests."
+            size="wide"
             icon={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }}
             onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'tickets' } })}
           />

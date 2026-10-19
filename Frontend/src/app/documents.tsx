@@ -17,13 +17,17 @@ import {
   AppBackdrop,
   EmptyState,
   IconButton,
+  MetricCard,
+  RoleHeroHeader,
   SectionHeader,
   StatusBadge,
   SurfaceCard,
 } from '@/components/ui/academic-ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import RoleGuard from '@/components/role-guard';
+import { BentoGrid, BentoPanel } from '@/components/dashboard/dashboard-primitives';
 import { supabase } from '@/lib/supabase';
 
 interface DocumentRequest {
@@ -79,29 +83,30 @@ function formatDate(iso: string) {
 
 function RequestCard({ item }: { item: DocumentRequest }) {
   const tone = STATUS_TONE[item.status] ?? 'muted';
+  const colors = useTheme();
   return (
     <SurfaceCard style={styles.requestCard}>
       <View style={styles.requestHeader}>
         <View style={styles.docIcon}>
           <AcademicIcon
             name={{ ios: 'doc.text', android: 'description', web: 'description' }}
-            color={Academic.primary}
+            color={colors.primary}
             size={22}
           />
         </View>
         <View style={styles.requestText}>
-          <Text style={styles.docTitle} numberOfLines={2}>{DOC_LABEL[item.document_type] ?? item.document_type}</Text>
-          <Text style={styles.requestMeta}>
+          <Text style={[styles.docTitle, { color: colors.navy }]} numberOfLines={2}>{DOC_LABEL[item.document_type] ?? item.document_type}</Text>
+          <Text style={[styles.requestMeta, { color: colors.textSecondary }]}>
             {item.copies} {item.copies === 1 ? 'copy' : 'copies'} - Requested {formatDate(item.requested_at)}
           </Text>
         </View>
         <StatusBadge label={STATUS_LABEL[item.status] ?? item.status} tone={tone} />
       </View>
-      <Text style={styles.requestPurpose} numberOfLines={2}>Purpose: {item.purpose}</Text>
+      <Text style={[styles.requestPurpose, { color: colors.textSecondary }]} numberOfLines={2}>Purpose: {item.purpose}</Text>
       {item.remarks ? (
-        <View style={styles.remarksBox}>
-          <Text style={styles.remarksLabel}>Staff note</Text>
-          <Text style={styles.remarksText}>{item.remarks}</Text>
+        <View style={[styles.remarksBox, { backgroundColor: colors.muted }]}>
+          <Text style={[styles.remarksLabel, { color: colors.primary }]}>Staff note</Text>
+          <Text style={[styles.remarksText, { color: colors.navy }]}>{item.remarks}</Text>
         </View>
       ) : null}
     </SurfaceCard>
@@ -110,6 +115,7 @@ function RequestCard({ item }: { item: DocumentRequest }) {
 
 function DocumentsScreenContent() {
   const { profile, session } = useAuth();
+  const colors = useTheme();
   const [view, setView] = useState<ScreenView>('list');
   const [requests, setRequests] = useState<DocumentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +175,7 @@ function DocumentsScreenContent() {
 
   if (view === 'new') {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <AppBackdrop />
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -180,12 +186,12 @@ function DocumentsScreenContent() {
               icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
               onPress={() => setView('list')}
               label="Back"
-              bg={Academic.muted}
-              color={Academic.textSecondary}
+              bg={colors.muted}
+              color={colors.textSecondary}
             />
             <View style={{ flex: 1 }}>
-              <Text style={styles.pageTitle}>Request Document</Text>
-              <Text style={styles.pageSub}>Processing time depends on office verification.</Text>
+              <Text style={[styles.pageTitle, { color: colors.navy }]}>Request Document</Text>
+              <Text style={[styles.pageSub, { color: colors.textSecondary }]}>Processing time depends on office verification.</Text>
             </View>
           </View>
 
@@ -197,9 +203,9 @@ function DocumentsScreenContent() {
             {DOC_TYPES.map(item => {
               const active = docType === item.value;
               return (
-                <Pressable key={item.value} onPress={() => setDocType(item.value)} style={[styles.docTypeCard, active && styles.docTypeCardActive]}>
-                  <Text style={[styles.docTypeLabel, active && styles.docTypeLabelActive]}>{item.label}</Text>
-                  <Text style={styles.docTypeDesc}>{item.description}</Text>
+                <Pressable key={item.value} onPress={() => setDocType(item.value)} style={[styles.docTypeCard, { backgroundColor: colors.card, borderColor: colors.border }, active && { backgroundColor: colors.softBlue, borderColor: colors.primary }]}>
+                  <Text style={[styles.docTypeLabel, { color: active ? colors.primary : colors.navy }]}>{item.label}</Text>
+                  <Text style={[styles.docTypeDesc, { color: colors.textSecondary }]}>{item.description}</Text>
                 </Pressable>
               );
             })}
@@ -209,7 +215,7 @@ function DocumentsScreenContent() {
           <TextInput
             style={styles.textarea}
             placeholder="e.g. For scholarship application, employment requirements..."
-            placeholderTextColor={Academic.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             value={purpose}
             onChangeText={setPurpose}
             multiline
@@ -217,7 +223,7 @@ function DocumentsScreenContent() {
             maxLength={300}
             textAlignVertical="top"
           />
-          <Text style={styles.charCount}>{purpose.length}/300</Text>
+          <Text style={[styles.charCount, { color: colors.textSecondary }]}>{purpose.length}/300</Text>
 
           <SectionHeader title="Copies" />
           <View style={styles.copiesRow}>
@@ -243,23 +249,26 @@ function DocumentsScreenContent() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         contentContainerStyle={styles.scroll}>
-        <View style={styles.pageHeader}>
-          <View>
-            <Text style={styles.pageTitle}>Documents</Text>
-            <Text style={styles.pageSub}>Track official CAS document requests.</Text>
-          </View>
-          <IconButton
-            icon={{ ios: 'plus', android: 'add', web: 'add' }}
-            onPress={() => setView('new')}
-            label="New document request"
-          />
-        </View>
+        <RoleHeroHeader
+          label="Student services"
+          title="Documents"
+          subtitle="Track official CAS document requests."
+          right={(
+            <IconButton
+              icon={{ ios: 'plus', android: 'add', web: 'add' }}
+              onPress={() => setView('new')}
+              label="New document request"
+              bg="rgba(255,255,255,0.14)"
+              color="#FFFFFF"
+            />
+          )}
+        />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.legendRail}>
           {['submitted', 'under_evaluation', 'processing', 'ready_for_pickup', 'completed'].map(status => (
@@ -267,8 +276,35 @@ function DocumentsScreenContent() {
           ))}
         </ScrollView>
 
+        <BentoGrid>
+          <BentoPanel size="compact">
+            <MetricCard
+              label="Requests shown"
+              value={requests.length}
+              tone="blue"
+              icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
+            />
+          </BentoPanel>
+          <BentoPanel size="compact">
+            <MetricCard
+              label="In progress"
+              value={requests.filter(item => ['submitted', 'under_evaluation', 'processing', 'action_required'].includes(item.status)).length}
+              tone="warning"
+              icon={{ ios: 'clock', android: 'schedule', web: 'schedule' }}
+            />
+          </BentoPanel>
+          <BentoPanel size="compact">
+            <MetricCard
+              label="Ready or completed"
+              value={requests.filter(item => ['ready_for_pickup', 'completed'].includes(item.status)).length}
+              tone="success"
+              icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
+            />
+          </BentoPanel>
+        </BentoGrid>
+
         {loading ? (
-          <ActivityIndicator color={Academic.primary} style={styles.loader} />
+          <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : requests.length === 0 ? (
           <EmptyState
             title="No document requests"
@@ -276,7 +312,11 @@ function DocumentsScreenContent() {
             icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
           />
         ) : (
-          requests.map(item => <RequestCard key={item.id} item={item} />)
+          <BentoGrid>
+            <BentoPanel size="wide" style={styles.requestListPanel}>
+              {requests.map(item => <RequestCard key={item.id} item={item} />)}
+            </BentoPanel>
+          </BentoGrid>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -312,6 +352,7 @@ const styles = StyleSheet.create({
   pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '700', letterSpacing: -0.45 },
   pageSub: { color: Academic.textSecondary, fontSize: 13, marginTop: 3 },
   legendRail: { gap: Spacing.two, paddingRight: Spacing.three },
+  requestListPanel: { gap: Spacing.three },
   loader: { marginTop: Spacing.four },
   requestCard: { gap: 12 },
   requestHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },

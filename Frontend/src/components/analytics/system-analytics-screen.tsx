@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import RoleGuard from '@/components/role-guard';
+import { BentoGrid, BentoPanel } from '@/components/dashboard/dashboard-primitives';
 import {
   Academic,
   AcademicIcon,
@@ -395,8 +396,8 @@ function SystemAnalyticsContent() {
                 />
               </View>
 
-              <View style={[styles.twoColumn, wide && styles.twoColumnWide]}>
-                <View style={styles.column}>
+              <BentoGrid style={styles.twoColumn}>
+                <BentoPanel size="medium" style={styles.column}>
                   <SectionHeader title="Account Distribution" />
                   <SurfaceCard style={styles.chartCard}>
                     <DistributionRow label="Students" value={number(snapshot.users.student)} total={number(snapshot.users.total)} color={Academic.primary} />
@@ -404,8 +405,8 @@ function SystemAnalyticsContent() {
                     <DistributionRow label="Staff" value={number(snapshot.users.staff)} total={number(snapshot.users.total)} color={Academic.success} />
                     <DistributionRow label="Super admins" value={number(snapshot.users.superAdmin)} total={number(snapshot.users.total)} color={Academic.error} />
                   </SurfaceCard>
-                </View>
-                <View style={styles.column}>
+                </BentoPanel>
+                <BentoPanel size="medium" style={styles.column}>
                   <SectionHeader title="Advising Pipeline" />
                   <SurfaceCard style={styles.chartCard}>
                     <DistributionRow label="Submitted" value={number(snapshot.advising.submitted)} total={number(snapshot.advising.total)} color={Academic.primary} />
@@ -413,13 +414,17 @@ function SystemAnalyticsContent() {
                     <DistributionRow label="Action required" value={number(snapshot.advising.actionRequired)} total={number(snapshot.advising.total)} color={Academic.error} />
                     <DistributionRow label="Resolved" value={number(snapshot.advising.resolved)} total={number(snapshot.advising.total)} color={Academic.success} />
                   </SurfaceCard>
-                </View>
-              </View>
+                </BentoPanel>
+              </BentoGrid>
 
               <SectionHeader title="Feature Usage" badge={`${windowDays}-day activity`} />
-              <View style={[styles.usageGrid, wide && styles.usageGridWide]}>
-                {featureUsage.map(item => <UsageCard key={item.label} item={item} windowDays={windowDays} wide={wide} />)}
-              </View>
+              <BentoGrid>
+                {featureUsage.map(item => (
+                  <BentoPanel key={item.label} size="medium">
+                    <UsageCard item={item} windowDays={windowDays} wide={false} />
+                  </BentoPanel>
+                ))}
+              </BentoGrid>
 
               <SectionHeader title="Academic & Knowledge Coverage" />
               <SurfaceCard style={styles.coverageCard}>
@@ -494,8 +499,7 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 13, fontWeight: '900' },
   metricDetail: { fontSize: 11, lineHeight: 16 },
   twoColumn: { gap: Spacing.three },
-  twoColumnWide: { flexDirection: 'row' },
-  column: { flex: 1, gap: Spacing.two },
+  column: { gap: Spacing.two },
   chartCard: { gap: Spacing.three },
   distributionRow: { gap: 7 },
   distributionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },

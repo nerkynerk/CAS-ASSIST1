@@ -382,6 +382,7 @@ export default function FacultyDashboard() {
           <DashboardActionCard
             label="Log Room Change"
             caption="Notify students using an active assignment."
+            size="wide"
             icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
             onPress={() => {
               if (assignments.length === 1) selectAssignment(assignments[0]);

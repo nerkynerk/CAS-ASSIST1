@@ -25,6 +25,7 @@ import {
   formatCategory,
 } from '@/components/ui/academic-ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 interface FaqArticle {
@@ -37,6 +38,7 @@ interface FaqArticle {
 
 function FaqContent() {
   const router = useRouter();
+  const colors = useTheme();
   const [articles, setArticles] = useState<FaqArticle[]>([]);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -74,49 +76,49 @@ function FaqContent() {
   }, [articles, search]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <View style={styles.header}>
         <IconButton
           icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
           onPress={() => router.back()}
           label="Go back"
-          bg={Academic.muted}
-          color={Academic.textSecondary}
+          bg={colors.muted}
+          color={colors.textSecondary}
         />
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Frequently Asked Questions</Text>
-          <Text style={styles.subtitle}>Approved answers used by the AI Helpdesk</Text>
+          <Text style={[styles.title, { color: colors.navy }]}>Frequently Asked Questions</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Approved answers used by the AI Helpdesk</Text>
         </View>
         <StatusBadge label={`${articles.length} answers`} tone="success" />
       </View>
 
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}>
         <View style={styles.content}>
-          <View style={styles.searchBox}>
-            <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={Academic.textSecondary} size={19} />
+          <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={colors.textSecondary} size={19} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.text }]}
               value={search}
               onChangeText={setSearch}
               placeholder="Search questions and answers"
-              placeholderTextColor={Academic.textSecondary}
+              placeholderTextColor={colors.textSecondary}
               returnKeyType="search"
               autoCorrect={false}
             />
           </View>
 
-          <View style={styles.scopeNotice}>
-            <AcademicIcon name={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} color={Academic.success} size={18} />
-            <Text style={styles.scopeText}>These answers cover CAS Assist workflows. Official fees, requirements, deadlines, and decisions must come from an approved institutional source.</Text>
+          <View style={[styles.scopeNotice, { backgroundColor: colors.successBg }]}>
+            <AcademicIcon name={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} color={colors.success} size={18} />
+            <Text style={[styles.scopeText, { color: colors.navy }]}>These answers cover CAS Assist workflows. Official fees, requirements, deadlines, and decisions must come from an approved institutional source.</Text>
           </View>
 
           {loading ? (
-            <ActivityIndicator color={Academic.primary} style={styles.loader} />
+            <ActivityIndicator color={colors.primary} style={styles.loader} />
           ) : error ? (
             <EmptyState title="FAQs unavailable" message={error} icon={{ ios: 'exclamationmark.triangle', android: 'priority_high', web: 'priority_high' }} />
           ) : visible.length === 0 ? (
@@ -130,17 +132,17 @@ function FaqContent() {
                     <View style={styles.questionRow}>
                       <View style={styles.questionCopy}>
                         <StatusBadge label={formatCategory(article.category)} tone="blue" />
-                        <Text selectable style={styles.question}>{article.title}</Text>
+                        <Text selectable style={[styles.question, { color: colors.navy }]}>{article.title}</Text>
                       </View>
                       <AcademicIcon
                         name={{ ios: open ? 'chevron.up' : 'chevron.down', android: open ? 'keyboard_arrow_up' : 'keyboard_arrow_down', web: open ? 'keyboard_arrow_up' : 'keyboard_arrow_down' }}
-                        color={Academic.primary}
+                        color={colors.primary}
                         size={20}
                       />
                     </View>
                     {open ? (
-                      <Animated.View entering={FadeIn.duration(160).reduceMotion(ReduceMotion.System)} style={styles.answerBox}>
-                        <Text selectable style={styles.answer}>{article.answer}</Text>
+                      <Animated.View entering={FadeIn.duration(160).reduceMotion(ReduceMotion.System)} style={[styles.answerBox, { borderTopColor: colors.border }]}>
+                        <Text selectable style={[styles.answer, { color: colors.textSecondary }]}>{article.answer}</Text>
                       </Animated.View>
                     ) : null}
                   </SurfaceCard>

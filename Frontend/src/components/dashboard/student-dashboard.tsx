@@ -463,6 +463,7 @@ export default function StudentDashboard() {
           <DashboardActionCard
             label="News"
             caption="Read department announcements."
+            size="wide"
             icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
             onPress={() => router.navigate('/explore')}
           />

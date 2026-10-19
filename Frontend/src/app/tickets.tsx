@@ -17,6 +17,8 @@ import {
   AppBackdrop,
   EmptyState,
   IconButton,
+  MetricCard,
+  RoleHeroHeader,
   SectionHeader,
   StatusBadge,
   SurfaceCard,
@@ -25,7 +27,9 @@ import {
 } from '@/components/ui/academic-ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import RoleGuard from '@/components/role-guard';
+import { BentoGrid, BentoPanel } from '@/components/dashboard/dashboard-primitives';
 import { supabase } from '@/lib/supabase';
 
 const EXEC_E = (5 + 45 + 15) / 3;
@@ -121,27 +125,28 @@ function CurrentTicketCard({
   metrics: QueueMetrics | null;
 }) {
   const minutes = metrics?.estimatedMinutes;
+  const colors = useTheme();
 
   return (
-    <View style={styles.currentTicketCard}>
+    <View style={[styles.currentTicketCard, { backgroundColor: colors.primary }]}>
       <View style={styles.currentText}>
-        <Text style={styles.currentLabel}>Current Active Ticket</Text>
+        <Text style={[styles.currentLabel, { color: colors.background }]}>Current Active Ticket</Text>
         <View style={styles.currentRefRow}>
-          <Text style={styles.currentRef}>{shortRef(ticket.id)}</Text>
+          <Text style={[styles.currentRef, { color: colors.background }]}>{shortRef(ticket.id)}</Text>
           <View style={styles.currentCategoryPill}>
-            <Text style={styles.currentCategoryText}>{formatCategory(ticket.category)}</Text>
+            <Text style={[styles.currentCategoryText, { color: colors.background }]}>{formatCategory(ticket.category)}</Text>
           </View>
         </View>
         <View style={styles.currentStats}>
           <View>
-            <Text style={styles.currentStatLabel}>Students ahead</Text>
-            <Text style={styles.currentStatValue}>
+            <Text style={[styles.currentStatLabel, { color: colors.background }]}>Students ahead</Text>
+            <Text style={[styles.currentStatValue, { color: colors.background }]}>
               {metrics?.position ? Math.max(metrics.position - 1, 0) : '--'}
             </Text>
           </View>
           <View>
-            <Text style={styles.currentStatLabel}>Est. wait</Text>
-            <Text style={styles.currentStatValue}>
+            <Text style={[styles.currentStatLabel, { color: colors.background }]}>Est. wait</Text>
+            <Text style={[styles.currentStatValue, { color: colors.background }]}>
               {minutes ? `${minutes} min` : '--'}
             </Text>
           </View>
@@ -161,10 +166,11 @@ function CurrentTicketCard({
 function RequestListCard({ ticket }: { ticket: Ticket }) {
   const isComplete = ticket.status === 'resolved';
   const tone = STATUS_TONE[ticket.status] ?? 'muted';
+  const colors = useTheme();
 
   return (
     <SurfaceCard style={styles.requestCard}>
-      <View style={[styles.requestIcon, isComplete && styles.requestIconDone]}>
+      <View style={[styles.requestIcon, { backgroundColor: isComplete ? colors.successBg : colors.muted }]}>
         <AcademicIcon
           name={
             isComplete
@@ -173,23 +179,23 @@ function RequestListCard({ ticket }: { ticket: Ticket }) {
                 ? { ios: 'clock', android: 'schedule', web: 'schedule' }
                 : { ios: 'doc.text', android: 'description', web: 'description' }
           }
-          color={isComplete ? Academic.success : Academic.primary}
+          color={isComplete ? colors.success : colors.primary}
           size={22}
         />
       </View>
       <View style={styles.requestCardBody}>
         <View style={styles.requestMetaRow}>
-          <Text style={styles.requestRef}>{shortRef(ticket.id)}</Text>
+          <Text style={[styles.requestRef, { color: colors.primary }]}>{shortRef(ticket.id)}</Text>
           <StatusBadge label={STATUS_LABEL[ticket.status] ?? ticket.status} tone={tone} />
         </View>
-        <Text style={styles.requestTitle} numberOfLines={1}>{formatCategory(ticket.category)}</Text>
-        <Text style={styles.requestDate} numberOfLines={1}>
+        <Text style={[styles.requestTitle, { color: colors.navy }]} numberOfLines={1}>{formatCategory(ticket.category)}</Text>
+        <Text style={[styles.requestDate, { color: colors.textSecondary }]} numberOfLines={1}>
           {isComplete ? 'Completed' : 'Submitted'}: {formatDateTime(ticket.created_at)}
         </Text>
       </View>
       <AcademicIcon
         name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-        color="#C4CFDD"
+        color={colors.textTertiary}
         size={18}
       />
     </SurfaceCard>
@@ -205,6 +211,7 @@ function NewTicketForm({
   onSubmitted: () => Promise<void>;
   userId: string | undefined;
 }) {
+  const colors = useTheme();
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -239,7 +246,7 @@ function NewTicketForm({
   }
 
   return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <AppBackdrop />
         <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -250,10 +257,10 @@ function NewTicketForm({
             icon={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
             onPress={onBack}
             label="Back to requests"
-            bg={Academic.muted}
-            color={Academic.textSecondary}
+            bg={colors.muted}
+            color={colors.textSecondary}
           />
-          <Text style={styles.pageTitle}>New Request</Text>
+          <Text style={[styles.pageTitle, { color: colors.navy }]}>New Request</Text>
         </View>
 
         {formError ? (
@@ -270,8 +277,8 @@ function NewTicketForm({
               <Pressable
                 key={c}
                 onPress={() => setCategory(c)}
-                style={[styles.choiceChip, active && styles.choiceChipActive]}>
-                <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{c}</Text>
+                style={[styles.choiceChip, { backgroundColor: colors.card, borderColor: colors.border }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                <Text style={[styles.choiceChipText, { color: active ? colors.background : colors.textSecondary }]}>{c}</Text>
               </Pressable>
             );
           })}
@@ -279,9 +286,9 @@ function NewTicketForm({
 
         <SectionHeader title="Details" />
         <TextInput
-          style={styles.textarea}
+          style={[styles.textarea, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
           placeholder="Please provide as much detail as possible..."
-          placeholderTextColor={Academic.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           value={description}
           onChangeText={setDescription}
           multiline
@@ -289,7 +296,7 @@ function NewTicketForm({
           maxLength={800}
           textAlignVertical="top"
         />
-        <Text style={styles.charCount}>{description.length}/800</Text>
+        <Text style={[styles.charCount, { color: colors.textSecondary }]}>{description.length}/800</Text>
 
         <Pressable
           style={({ pressed }) => [styles.submitButton, (pressed || submitting) && styles.pressed]}
@@ -308,6 +315,7 @@ function NewTicketForm({
 
 function TicketsScreenContent() {
   const { profile, session } = useAuth();
+  const colors = useTheme();
   const [view, setView] = useState<ScreenView>('list');
   const [filter, setFilter] = useState<RequestFilter>('active');
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -397,24 +405,30 @@ function TicketsScreenContent() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         contentContainerStyle={styles.scroll}>
-        <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>My Requests</Text>
-          <IconButton
-            icon={{ ios: 'plus', android: 'add', web: 'add' }}
-            onPress={() => setView('new')}
-            label="Create request"
-          />
-        </View>
+        <RoleHeroHeader
+          label="Student services"
+          title="My Requests"
+          subtitle="Track your assistance queue and request history."
+          right={(
+            <IconButton
+              icon={{ ios: 'plus', android: 'add', web: 'add' }}
+              onPress={() => setView('new')}
+              label="Create request"
+              bg="rgba(255,255,255,0.14)"
+              color="#FFFFFF"
+            />
+          )}
+        />
 
         {updateAlert ? (
           <View style={styles.infoBanner}>
-            <Text style={styles.infoBannerText}>{updateAlert}</Text>
+            <Text style={[styles.infoBannerText, { color: colors.primary }]}>{updateAlert}</Text>
           </View>
         ) : null}
 
@@ -425,8 +439,8 @@ function TicketsScreenContent() {
               <Pressable
                 key={item}
                 onPress={() => setFilter(item)}
-                style={[styles.segment, active && styles.segmentActive]}>
-                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                style={[styles.segment, { backgroundColor: active ? colors.card : 'transparent' }, active && styles.segmentActive]}>
+                <Text style={[styles.segmentText, { color: active ? colors.navy : colors.textSecondary }]}>
                   {item.charAt(0).toUpperCase() + item.slice(1)}
                 </Text>
               </Pressable>
@@ -434,12 +448,44 @@ function TicketsScreenContent() {
           })}
         </View>
 
-        {currentTicket ? (
-          <CurrentTicketCard ticket={currentTicket} metrics={metrics} />
-        ) : null}
+        <BentoGrid>
+          <BentoPanel size="wide">
+            {currentTicket ? (
+              <CurrentTicketCard ticket={currentTicket} metrics={metrics} />
+            ) : (
+              <EmptyState
+                title="No current active ticket"
+                message="A queue position will appear here when you submit a request."
+                icon={{ ios: 'clock', android: 'schedule', web: 'schedule' }}
+              />
+            )}
+          </BentoPanel>
+          <BentoPanel size="compact">
+            <View style={styles.metricsStack}>
+              <MetricCard
+                label="Active requests"
+                value={activeTickets.length}
+                tone="blue"
+                icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }}
+              />
+              <MetricCard
+                label="Completed"
+                value={tickets.filter(ticket => ticket.status === 'resolved').length}
+                tone="success"
+                icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
+              />
+              <MetricCard
+                label="Total shown"
+                value={tickets.length}
+                tone="muted"
+                icon={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }}
+              />
+            </View>
+          </BentoPanel>
+        </BentoGrid>
 
         {loading ? (
-          <ActivityIndicator color={Academic.primary} style={styles.loader} />
+          <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : visibleTickets.length === 0 ? (
           <EmptyState
             title={filter === 'active' ? 'No active requests' : 'No requests found'}
@@ -496,6 +542,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: Academic.muted,
   },
+  metricsStack: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   segment: {
     flex: 1,
     minHeight: 36,

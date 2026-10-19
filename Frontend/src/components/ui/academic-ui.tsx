@@ -315,7 +315,9 @@ export function SurfaceCard({
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: themeColors.card,
+      backgroundColor: process.env.EXPO_OS === 'web'
+        ? resolvedTheme === 'dark' ? 'rgba(24,40,38,0.88)' : 'rgba(255,255,255,0.78)'
+        : themeColors.card,
       borderColor: themeColors.border,
     },
     accentColor && { borderLeftWidth: 4, borderLeftColor: accentColor },
@@ -359,7 +361,7 @@ export function MetricCard({
         <AcademicIcon name={icon} size={20} color={colors.text} />
       </View>
       <Text style={[styles.metricValue, { color: colors.text }]}>{value}</Text>
-      <Text style={styles.metricLabel} numberOfLines={2}>{label}</Text>
+      <Text style={[styles.metricLabel, { color: themeColors.textSecondary }]} numberOfLines={2}>{label}</Text>
     </SurfaceCard>
   );
 }
@@ -377,7 +379,7 @@ export function EmptyState({
   return (
     <SurfaceCard style={styles.emptyState}>
       {icon ? (
-        <View style={styles.emptyIcon}>
+        <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
           <AcademicIcon name={icon} color={colors.textSecondary} size={24} />
         </View>
       ) : null}

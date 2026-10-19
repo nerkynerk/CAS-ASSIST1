@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/academic-ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
 interface Ticket {
@@ -158,6 +159,7 @@ function ManagementCard({
 }
 
 function AllTickets() {
+  const colors = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,15 +198,15 @@ function AllTickets() {
 
   return (
     <ScrollView
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.subScroll}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
         {filters.map(item => {
           const active = filter === item;
           return (
-            <Pressable key={item} onPress={() => setFilter(item)} style={[styles.filterChip, active && styles.filterChipActive]}>
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>
+            <Pressable key={item} onPress={() => setFilter(item)} style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.filterChipActive]}>
+              <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.filterTextActive]}>
                 {item === 'all' ? 'All' : STATUS_LABEL[item] ?? item}
               </Text>
             </Pressable>
@@ -213,7 +215,7 @@ function AllTickets() {
       </ScrollView>
 
       {loading ? (
-        <ActivityIndicator color={Academic.primary} style={styles.loader} />
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : tickets.length === 0 ? (
         <EmptyState
           title="No tickets found"
@@ -228,15 +230,15 @@ function AllTickets() {
             <ManagementCard key={ticket.id} accent={ticket.status === 'action_required' ? 'error' : 'blue'}>
               <View style={styles.cardTop}>
                 <View style={styles.cardTitleGroup}>
-                  <Text style={styles.refText}>{shortRef(ticket.id)}</Text>
-                  <Text style={styles.itemTitle}>{formatCategory(ticket.category)}</Text>
-                  {student ? <Text style={styles.itemMeta} numberOfLines={1}>{student.display_name} - {student.email}</Text> : null}
+                  <Text style={[styles.refText, { color: colors.primary }]}>{shortRef(ticket.id)}</Text>
+                  <Text style={[styles.itemTitle, { color: colors.navy }]}>{formatCategory(ticket.category)}</Text>
+                  {student ? <Text style={[styles.itemMeta, { color: colors.textSecondary }]} numberOfLines={1}>{student.display_name} - {student.email}</Text> : null}
                 </View>
                 <StatusBadge label={STATUS_LABEL[ticket.status] ?? ticket.status} tone={STATUS_TONE[ticket.status] ?? 'muted'} />
               </View>
-              <Text style={styles.itemBody} numberOfLines={2}>{ticket.description}</Text>
+              <Text style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>{ticket.description}</Text>
               <View style={styles.footerRow}>
-                <Text style={styles.itemMeta}>{formatDate(ticket.created_at)}</Text>
+                <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>{formatDate(ticket.created_at)}</Text>
                 {next ? (
                   <Pressable
                     style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
@@ -259,6 +261,7 @@ function AllTickets() {
 }
 
 function PostAnnouncement({ adminId }: { adminId: string }) {
+  const colors = useTheme();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [audience, setAudience] = useState<string>('all');
@@ -331,26 +334,26 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
 
   return (
     <ScrollView
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       contentContainerStyle={styles.subScroll}>
-      {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
-      {success ? <View style={styles.successBox}><Text style={styles.successText}>Announcement posted successfully.</Text></View> : null}
+      {error ? <View style={[styles.errorBox, { backgroundColor: colors.errorBg }]}><Text style={[styles.errorText, { color: colors.error }]}>{error}</Text></View> : null}
+      {success ? <View style={[styles.successBox, { backgroundColor: colors.successBg }]}><Text style={[styles.successText, { color: colors.success }]}>Announcement posted successfully.</Text></View> : null}
 
       <SectionHeader title="Announcement Details" />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
         placeholder="Announcement title"
-        placeholderTextColor={Academic.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         value={title}
         onChangeText={setTitle}
         maxLength={120}
       />
       <TextInput
-        style={styles.textarea}
+        style={[styles.textarea, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
         placeholder="Write your announcement..."
-        placeholderTextColor={Academic.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         value={body}
         onChangeText={setBody}
         multiline
@@ -358,15 +361,15 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
         maxLength={1000}
         textAlignVertical="top"
       />
-      <Text style={styles.charCount}>{body.length}/1000</Text>
+      <Text style={[styles.charCount, { color: colors.textSecondary }]}>{body.length}/1000</Text>
 
       <SectionHeader title="Audience" />
       <View style={styles.chipRow}>
         {AUDIENCE_OPTIONS.map(item => {
           const active = audience === item;
           return (
-            <Pressable key={item} onPress={() => setAudience(item)} style={[styles.choiceChip, active && styles.choiceChipActive]}>
-              <Text style={[styles.choiceText, active && styles.choiceTextActive]}>
+              <Pressable key={item} onPress={() => setAudience(item)} style={[styles.choiceChip, { backgroundColor: colors.card, borderColor: colors.border }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+              <Text style={[styles.choiceText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.choiceTextActive]}>
                 {item.charAt(0).toUpperCase() + item.slice(1)}
               </Text>
             </Pressable>
@@ -374,14 +377,14 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
         })}
       </View>
 
-      <Pressable onPress={() => setIsPinned(value => !value)} style={styles.pinToggle}>
+      <Pressable onPress={() => setIsPinned(value => !value)} style={[styles.pinToggle, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.pinLeft}>
           <AcademicIcon
             name={{ ios: 'pin', android: 'push_pin', web: 'push_pin' }}
-            color={isPinned ? Academic.warningText : Academic.textSecondary}
+            color={isPinned ? colors.warning : colors.textSecondary}
             size={18}
           />
-          <Text style={styles.pinText}>Pin this announcement</Text>
+          <Text style={[styles.pinText, { color: colors.navy }]}>Pin this announcement</Text>
         </View>
         <StatusBadge label={isPinned ? 'Pinned' : 'Standard'} tone={isPinned ? 'warning' : 'muted'} />
       </Pressable>
@@ -395,7 +398,7 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
 
       <SectionHeader title={`Published Announcements (${announcements.length})`} />
       {loadingAnnouncements ? (
-        <ActivityIndicator color={Academic.primary} style={styles.loader} />
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : announcements.length === 0 ? (
         <EmptyState
           title="No announcements yet"
@@ -415,19 +418,19 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
               <ManagementCard accent={item.pinned ? 'warning' : 'blue'}>
                 <View style={styles.cardTop}>
                   <View style={styles.cardTitleGroup}>
-                    <Text style={styles.itemTitle} numberOfLines={expanded ? undefined : 1}>{item.title}</Text>
-                    <Text style={styles.itemMeta}>{formatDate(publishedAt)}</Text>
+                    <Text style={[styles.itemTitle, { color: colors.navy }]} numberOfLines={expanded ? undefined : 1}>{item.title}</Text>
+                    <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>{formatDate(publishedAt)}</Text>
                   </View>
                   <StatusBadge label={item.pinned ? 'Pinned' : item.state} tone={item.pinned ? 'warning' : 'success'} />
                 </View>
-                <Text style={styles.itemBody} numberOfLines={expanded ? undefined : 2}>{item.body}</Text>
+                <Text style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={expanded ? undefined : 2}>{item.body}</Text>
                 {expanded ? (
                   <View style={styles.announcementDetails}>
-                    <Text style={styles.detailLabel}>Audience</Text>
-                    <Text style={styles.itemMeta}>{item.audience_roles.map(role => role.replace('_', ' ')).join(', ')}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.navy }]}>Audience</Text>
+                    <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>{item.audience_roles.map(role => role.replace('_', ' ')).join(', ')}</Text>
                   </View>
                 ) : null}
-                <Text style={styles.expandLink}>{expanded ? 'Hide details' : 'Open announcement'}</Text>
+                <Text style={[styles.expandLink, { color: colors.primary }]}>{expanded ? 'Hide details' : 'Open announcement'}</Text>
               </ManagementCard>
             </Pressable>
           );
@@ -438,6 +441,7 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
 }
 
 function DocRequests() {
+  const colors = useTheme();
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -481,11 +485,11 @@ function DocRequests() {
 
   return (
     <ScrollView
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.subScroll}>
       {loading ? (
-        <ActivityIndicator color={Academic.primary} style={styles.loader} />
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : docs.length === 0 ? (
         <EmptyState
           title="No document requests"
@@ -501,27 +505,27 @@ function DocRequests() {
             <ManagementCard key={doc.id} accent={doc.status === 'rejected' ? 'error' : 'blue'}>
               <View style={styles.cardTop}>
                 <View style={styles.cardTitleGroup}>
-                  <Text style={styles.itemTitle}>{DOC_LABEL[doc.document_type] ?? formatCategory(doc.document_type)}</Text>
-                  {student ? <Text style={styles.itemMeta} numberOfLines={1}>{student.display_name} - {student.email}</Text> : null}
-                  <Text style={styles.itemMeta}>{doc.copies} {doc.copies === 1 ? 'copy' : 'copies'} - {doc.purpose}</Text>
+                  <Text style={[styles.itemTitle, { color: colors.navy }]}>{DOC_LABEL[doc.document_type] ?? formatCategory(doc.document_type)}</Text>
+                  {student ? <Text style={[styles.itemMeta, { color: colors.textSecondary }]} numberOfLines={1}>{student.display_name} - {student.email}</Text> : null}
+                  <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>{doc.copies} {doc.copies === 1 ? 'copy' : 'copies'} - {doc.purpose}</Text>
                 </View>
                 <StatusBadge label={DOC_STATUS_LABEL[doc.status] ?? doc.status} tone={DOC_STATUS_TONE[doc.status] ?? 'muted'} />
               </View>
 
               {next ? (
                 <TextInput
-                  style={styles.remarksInput}
+                  style={[styles.remarksInput, { color: colors.text, backgroundColor: colors.muted }]}
                   placeholder="Add a note to the student (optional)"
-                  placeholderTextColor={Academic.textSecondary}
+                  placeholderTextColor={colors.textSecondary}
                   value={remarks[doc.id] ?? ''}
                   onChangeText={value => setRemarks(current => ({ ...current, [doc.id]: value }))}
                 />
               ) : doc.remarks ? (
-                <Text style={styles.itemBody}>Staff note: {doc.remarks}</Text>
+                <Text style={[styles.itemBody, { color: colors.textSecondary }]}>Staff note: {doc.remarks}</Text>
               ) : null}
 
               <View style={styles.footerRow}>
-                <Text style={styles.itemMeta}>{formatDate(doc.requested_at)}</Text>
+                <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>{formatDate(doc.requested_at)}</Text>
                 {next ? (
                   <View style={styles.actionRow}>
                     <Pressable
@@ -548,6 +552,7 @@ function DocRequests() {
 }
 
 function UserList() {
+  const colors = useTheme();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -570,7 +575,7 @@ function UserList() {
 
   return (
     <ScrollView
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Academic.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.subScroll}>
       <SectionHeader title={`Filter by role (${visibleUsers.length})`} />
@@ -584,14 +589,14 @@ function UserList() {
               onPress={() => setRoleFilter(role)}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              style={[styles.filterChip, active && styles.filterChipActive]}>
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
+              style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.filterChipActive]}>
+              <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.filterTextActive]}>{label}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
       {loading ? (
-        <ActivityIndicator color={Academic.primary} style={styles.loader} />
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : visibleUsers.length === 0 ? (
         <EmptyState
           title="No matching users"
@@ -606,12 +611,12 @@ function UserList() {
                 <Text style={styles.userInitial}>{(user.display_name || 'U')[0].toUpperCase()}</Text>
               </View>
               <View style={styles.userInfo}>
-                <Text style={styles.itemTitle} numberOfLines={1}>{user.display_name}</Text>
-                <Text style={styles.itemMeta} numberOfLines={1}>{user.email}</Text>
+                <Text style={[styles.itemTitle, { color: colors.navy }]} numberOfLines={1}>{user.display_name}</Text>
+                <Text style={[styles.itemMeta, { color: colors.textSecondary }]} numberOfLines={1}>{user.email}</Text>
                 {user.role === 'student' && user.student_number ? (
-                  <Text style={styles.itemMeta}>Student No. {user.student_number}</Text>
+                  <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>Student No. {user.student_number}</Text>
                 ) : null}
-                <Text style={styles.itemMeta}>Joined {formatDate(user.created_at)}</Text>
+                <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>Joined {formatDate(user.created_at)}</Text>
               </View>
               <View style={styles.userBadges}>
                 <StatusBadge label={user.role.replace('_', ' ')} tone={user.role === 'super_admin' ? 'error' : user.role === 'staff' ? 'success' : 'blue'} />
@@ -627,6 +632,7 @@ function UserList() {
 
 export default function AdminScreen() {
   const { profile } = useAuth();
+  const colors = useTheme();
   const params = useLocalSearchParams<{ tab?: string | string[] }>();
   const [activeTab, setActiveTab] = useState<AdminTab>('tickets');
   const isAdmin = profile?.role === 'staff' || profile?.role === 'super_admin';
@@ -640,16 +646,16 @@ export default function AdminScreen() {
 
   if (!isAdmin) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <AppBackdrop />
         <View style={styles.accessDenied}>
           <AcademicIcon
             name={{ ios: 'lock', android: 'lock', web: 'lock' }}
-            color={Academic.error}
+            color={colors.error}
             size={42}
           />
-          <Text style={styles.accessTitle}>Access Restricted</Text>
-          <Text style={styles.accessBody}>This section is only available to CAS staff and administrators.</Text>
+          <Text style={[styles.accessTitle, { color: colors.navy }]}>Access Restricted</Text>
+          <Text style={[styles.accessBody, { color: colors.textSecondary }]}>This section is only available to CAS staff and administrators.</Text>
         </View>
       </SafeAreaView>
     );
@@ -663,14 +669,14 @@ export default function AdminScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <AppBackdrop />
       <View style={styles.header}>
         <View>
-          <Text style={styles.screenTitle}>
+          <Text style={[styles.screenTitle, { color: colors.navy }]}>
             {profile?.role === 'super_admin' ? 'Management' : 'Operations'}
           </Text>
-          <Text style={styles.screenSub}>CAS service tools and request processing</Text>
+          <Text style={[styles.screenSub, { color: colors.textSecondary }]}>CAS service tools and request processing</Text>
         </View>
         <StatusBadge label={profile?.role === 'super_admin' ? 'Super Admin' : 'Staff'} tone={profile?.role === 'super_admin' ? 'error' : 'success'} />
       </View>
@@ -679,8 +685,8 @@ export default function AdminScreen() {
         {tabs.map(tab => {
           const active = activeTab === tab.id;
           return (
-            <Pressable key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.innerTab, active && styles.innerTabActive]}>
-              <Text style={[styles.innerTabText, active && styles.innerTabTextActive]}>{tab.label}</Text>
+            <Pressable key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.innerTab, { backgroundColor: active ? colors.card : 'transparent' }, active && styles.innerTabActive]}>
+              <Text style={[styles.innerTabText, { color: active ? colors.navy : colors.textSecondary }, active && styles.innerTabTextActive]}>{tab.label}</Text>
             </Pressable>
           );
         })}
