@@ -19,6 +19,8 @@ export default class AuthenticatedErrorBoundary extends Component<Props, { hasEr
     if (__DEV__) {
       console.error('Authenticated application render failed', {
         name: error.name,
+        message: error.message,
+        stack: error.stack,
         componentStack: info.componentStack,
       });
     }
@@ -51,7 +53,7 @@ const styles = StyleSheet.create({
     padding: 32,
     backgroundColor: Academic.background,
   },
-  title: { color: Academic.navy, fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  title: { color: Academic.navy, fontSize: 22, fontWeight: '600', textAlign: 'center' },
   message: { color: Academic.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
   primaryButton: {
     width: '100%',
@@ -62,7 +64,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: Academic.primary,
   },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   secondaryButton: {
     width: '100%',
     maxWidth: 320,
@@ -73,5 +75,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Academic.border,
   },
-  secondaryButtonText: { color: Academic.navy, fontSize: 16, fontWeight: '800' },
+  secondaryButtonText: { color: Academic.navy, fontSize: 16, fontWeight: '600' },
 });

@@ -84,6 +84,7 @@ function MessageBubble({ message, onFeedback }: { message: Message; onFeedback: 
             </Text>
           </View>
         ) : null}
+        {!isUser && message.isDeflected ? <StatusBadge label="Needs confirmation" tone="warning" /> : null}
         {!isUser && message.queryId ? (
           <View style={styles.feedbackRow}>
             {message.feedback ? (
@@ -119,6 +120,7 @@ function ChatbotScreenContent() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
   const nextMessageId = useRef(0);
   const suggestions = SUGGESTIONS[profile?.role ?? 'student'] ?? SUGGESTIONS.student;
@@ -176,6 +178,7 @@ function ChatbotScreenContent() {
 
   async function sendFeedback(message: Message, helpful: boolean) {
     if (!message.queryId || message.feedback) return;
+    setFeedbackError(null);
     try {
       try {
         await apiPost('/api/ai/feedback', { queryId: message.queryId, resolved: helpful });
@@ -190,7 +193,7 @@ function ChatbotScreenContent() {
         ? { ...item, feedback: helpful ? 'helpful' : 'not_helpful' }
         : item));
     } catch {
-      // The answer remains usable even if feedback delivery fails.
+      setFeedbackError('Feedback could not be recorded. The answer remains available.');
     }
   }
 
@@ -210,6 +213,7 @@ function ChatbotScreenContent() {
           <Text style={[styles.headerTitle, { color: colors.navy }]}>CAS Assist Helpdesk</Text>
           <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Closed-domain Tier-1 assistant</Text>
         </View>
+        <StatusBadge label="Verified sources" tone="success" />
         <Pressable onPress={() => router.push('/faq')} style={[styles.faqButton, { backgroundColor: colors.softBlue }]} accessibilityRole="button">
           <AcademicIcon name={{ ios: 'questionmark.circle', android: 'info', web: 'info' }} color={colors.primary} size={18} />
           <Text style={[styles.faqButtonText, { color: colors.primary }]}>FAQs</Text>
@@ -274,19 +278,24 @@ function ChatbotScreenContent() {
           }
         />
 
+        {feedbackError ? <Text style={[styles.feedbackError, { color: colors.error }]}>{feedbackError}</Text> : null}
+
         <View style={[styles.composer, { paddingBottom: Math.max(12, insets.bottom), backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <TextInput
-            style={[styles.input, { color: colors.text, backgroundColor: colors.muted }]}
-            placeholder="Type your message..."
-            placeholderTextColor={colors.textSecondary}
-            value={input}
-            onChangeText={setInput}
-            multiline
-            maxLength={400}
-            returnKeyType="send"
-            onSubmitEditing={() => sendText(input)}
-            editable={!sending}
-          />
+          <View style={styles.inputColumn}>
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.muted }]}
+              placeholder="Ask about CAS services..."
+              placeholderTextColor={colors.textSecondary}
+              value={input}
+              onChangeText={setInput}
+              multiline
+              maxLength={400}
+              returnKeyType="send"
+              onSubmitEditing={() => sendText(input)}
+              editable={!sending}
+            />
+            <Text style={[styles.inputCount, { color: colors.textSecondary }]}>{input.length}/400 · approved workflow answers only</Text>
+          </View>
           <Pressable
             style={({ pressed }) => [
               styles.sendButton,
@@ -331,10 +340,11 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerText: { flex: 1, gap: 2 },
-  headerTitle: { color: Academic.navy, fontSize: 19, fontWeight: '700', letterSpacing: -0.25 },
-  headerSub: { color: Academic.textSecondary, fontSize: 13, fontWeight: '700' },
+  headerTitle: { color: Academic.navy, fontSize: 19, fontWeight: '600', letterSpacing: -0.25 },
+  headerSub: { color: Academic.textSecondary, fontSize: 13, fontWeight: '400' },
+  feedbackError: { width: '100%', maxWidth: 880, alignSelf: 'center', paddingHorizontal: Spacing.three, paddingBottom: 8, fontSize: 12, fontWeight: '600' },
   faqButton: { minHeight: 40, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Academic.softBlue },
-  faqButtonText: { color: Academic.primary, fontSize: 12, fontWeight: '700' },
+  faqButtonText: { color: Academic.primary, fontSize: 12, fontWeight: '500' },
   messageList: {
     width: '100%',
     maxWidth: 880,
@@ -362,7 +372,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Academic.border,
   },
-  suggestionText: { color: Academic.primary, fontSize: 13, fontWeight: '800' },
+  suggestionText: { color: Academic.primary, fontSize: 13, fontWeight: '500' },
   messageRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 9 },
   messageRowUser: { flexDirection: 'row-reverse' },
   botAvatar: {
@@ -393,14 +403,14 @@ const styles = StyleSheet.create({
   messageText: { color: Academic.navy, fontSize: 14, lineHeight: 20 },
   userMessageText: { color: '#FFFFFF' },
   ticketNotice: { borderRadius: 10, padding: 8, backgroundColor: Academic.warningBg },
-  ticketNoticeText: { color: Academic.warningText, fontSize: 12, fontWeight: '800' },
+  ticketNoticeText: { color: Academic.warningText, fontSize: 12, fontWeight: '500' },
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 },
-  sourceText: { flex: 1, color: Academic.success, fontSize: 11, lineHeight: 15, fontWeight: '800' },
+  sourceText: { flex: 1, color: Academic.success, fontSize: 11, lineHeight: 15, fontWeight: '500' },
   feedbackRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 3 },
-  feedbackPrompt: { color: Academic.textSecondary, fontSize: 11, fontWeight: '700' },
+  feedbackPrompt: { color: Academic.textSecondary, fontSize: 11, fontWeight: '400' },
   feedbackButton: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: Academic.softBlue },
-  feedbackButtonText: { color: Academic.primary, fontSize: 11, fontWeight: '900' },
-  feedbackThanks: { color: Academic.success, fontSize: 11, fontWeight: '800' },
+  feedbackButtonText: { color: Academic.primary, fontSize: 11, fontWeight: '600' },
+  feedbackThanks: { color: Academic.success, fontSize: 11, fontWeight: '500' },
   typingRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   typingBubble: {
     flexDirection: 'row',
@@ -427,8 +437,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Academic.border,
   },
+  inputColumn: { flex: 1, gap: 4 },
   input: {
-    flex: 1,
     maxHeight: 104,
     minHeight: 46,
     borderRadius: 23,
@@ -439,6 +449,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
   },
+  inputCount: { paddingHorizontal: 14, fontSize: 10, fontWeight: '400' },
   sendButton: {
     width: 46,
     height: 46,

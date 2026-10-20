@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -126,17 +126,25 @@ function DocumentsScreenContent() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const userId = profile?.id ?? session?.user.id;
 
   const fetchRequests = useCallback(async () => {
     if (!userId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('document_requests')
       .select('id, document_type, purpose, copies, status, remarks, requested_at')
       .eq('student_id', userId)
       .eq('state', 'active')
       .order('requested_at', { ascending: false });
+    if (error) {
+      setLoadError('Your document requests could not be loaded. Pull down to retry.');
+      return;
+    }
+    setLoadError(null);
     setRequests(data ?? []);
   }, [userId]);
 
@@ -144,6 +152,15 @@ function DocumentsScreenContent() {
   async function onRefresh() { setRefreshing(true); await fetchRequests(); setRefreshing(false); }
 
   useEffect(() => { void load(); }, [load]);
+
+  const visibleRequests = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return requests.filter(item => {
+      const label = DOC_LABEL[item.document_type] ?? item.document_type;
+      const matchesSearch = !query || `${label} ${item.purpose} ${item.remarks ?? ''}`.toLowerCase().includes(query);
+      return matchesSearch && (statusFilter === 'all' || item.status === statusFilter);
+    });
+  }, [requests, search, statusFilter]);
 
   async function handleSubmit() {
     setFormError(null);
@@ -225,6 +242,11 @@ function DocumentsScreenContent() {
           />
           <Text style={[styles.charCount, { color: colors.textSecondary }]}>{purpose.length}/300</Text>
 
+          <View style={[styles.infoBox, { backgroundColor: colors.softBlue }]}>
+            <AcademicIcon name={{ ios: 'info.circle', android: 'info', web: 'info' }} color={colors.primary} size={17} />
+            <Text style={[styles.infoText, { color: colors.navy }]}>Use the purpose field for any instructions. File attachments are not part of this request workflow.</Text>
+          </View>
+
           <SectionHeader title="Copies" />
           <View style={styles.copiesRow}>
             {[1, 2, 3, 4, 5].map(count => {
@@ -276,11 +298,40 @@ function DocumentsScreenContent() {
           ))}
         </ScrollView>
 
+        <View style={styles.requestFilters}>
+          <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={colors.textSecondary} size={18} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search document type, purpose, or staff note"
+              placeholderTextColor={colors.textSecondary}
+              accessibilityLabel="Search document requests"
+            />
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.legendRail}>
+            {['all', ...Object.keys(STATUS_LABEL)].map(status => {
+              const active = statusFilter === status;
+              return (
+                <Pressable
+                  key={status}
+                  onPress={() => setStatusFilter(status)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.statusFilter, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.statusFilterActive]}>
+                  <Text style={[styles.statusFilterText, { color: active ? '#FFFFFF' : colors.textSecondary }]}>{status === 'all' ? 'All requests' : STATUS_LABEL[status]}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         <BentoGrid>
           <BentoPanel size="compact">
             <MetricCard
               label="Requests shown"
-              value={requests.length}
+              value={visibleRequests.length}
               tone="blue"
               icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
             />
@@ -288,7 +339,7 @@ function DocumentsScreenContent() {
           <BentoPanel size="compact">
             <MetricCard
               label="In progress"
-              value={requests.filter(item => ['submitted', 'under_evaluation', 'processing', 'action_required'].includes(item.status)).length}
+              value={visibleRequests.filter(item => ['submitted', 'under_evaluation', 'processing', 'action_required'].includes(item.status)).length}
               tone="warning"
               icon={{ ios: 'clock', android: 'schedule', web: 'schedule' }}
             />
@@ -296,25 +347,27 @@ function DocumentsScreenContent() {
           <BentoPanel size="compact">
             <MetricCard
               label="Ready or completed"
-              value={requests.filter(item => ['ready_for_pickup', 'completed'].includes(item.status)).length}
+              value={visibleRequests.filter(item => ['ready_for_pickup', 'completed'].includes(item.status)).length}
               tone="success"
               icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
             />
           </BentoPanel>
         </BentoGrid>
 
-        {loading ? (
+        {loadError ? (
+          <EmptyState title="Requests unavailable" message={loadError} icon={{ ios: 'exclamationmark.triangle', android: 'priority_high', web: 'priority_high' }} />
+        ) : loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
-        ) : requests.length === 0 ? (
+        ) : visibleRequests.length === 0 ? (
           <EmptyState
-            title="No document requests"
-            message="Tap the plus button to request an official document."
+            title={requests.length === 0 ? 'No document requests' : 'No matching requests'}
+            message={requests.length === 0 ? 'Tap the plus button to request an official document.' : 'Try another search term or status filter.'}
             icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
           />
         ) : (
           <BentoGrid>
             <BentoPanel size="wide" style={styles.requestListPanel}>
-              {requests.map(item => <RequestCard key={item.id} item={item} />)}
+              {visibleRequests.map(item => <RequestCard key={item.id} item={item} />)}
             </BentoPanel>
           </BentoGrid>
         )}
@@ -349,9 +402,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.three,
   },
-  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '700', letterSpacing: -0.45 },
+  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '600', letterSpacing: -0.45 },
   pageSub: { color: Academic.textSecondary, fontSize: 13, marginTop: 3 },
   legendRail: { gap: Spacing.two, paddingRight: Spacing.three },
+  requestFilters: { gap: Spacing.two },
+  searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, borderRadius: 14, borderWidth: 1 },
+  searchInput: { flex: 1, minHeight: 46, fontSize: 14 },
+  statusFilter: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999 },
+  statusFilterActive: { backgroundColor: Academic.primary },
+  statusFilterText: { fontSize: 12, fontWeight: '500' },
   requestListPanel: { gap: Spacing.three },
   loader: { marginTop: Spacing.four },
   requestCard: { gap: 12 },
@@ -365,11 +424,11 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.softBlue,
   },
   requestText: { flex: 1, gap: 3 },
-  docTitle: { color: Academic.navy, fontSize: 16, fontWeight: '900' },
+  docTitle: { color: Academic.navy, fontSize: 16, fontWeight: '600' },
   requestMeta: { color: Academic.textSecondary, fontSize: 12, lineHeight: 17 },
   requestPurpose: { color: Academic.textSecondary, fontSize: 13, lineHeight: 19 },
   remarksBox: { borderRadius: 12, padding: 10, gap: 3, backgroundColor: Academic.muted },
-  remarksLabel: { color: Academic.primary, fontSize: 12, fontWeight: '900' },
+  remarksLabel: { color: Academic.primary, fontSize: 12, fontWeight: '500' },
   remarksText: { color: Academic.navy, fontSize: 13, lineHeight: 18 },
   docTypeGrid: { gap: Spacing.two },
   docTypeCard: {
@@ -381,7 +440,7 @@ const styles = StyleSheet.create({
     borderColor: Academic.border,
   },
   docTypeCardActive: { borderColor: Academic.primary, backgroundColor: Academic.softBlue },
-  docTypeLabel: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  docTypeLabel: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   docTypeLabelActive: { color: Academic.primary },
   docTypeDesc: { color: Academic.textSecondary, fontSize: 12, lineHeight: 17 },
   textarea: {
@@ -408,7 +467,7 @@ const styles = StyleSheet.create({
     borderColor: Academic.border,
   },
   copyButtonActive: { backgroundColor: Academic.primary, borderColor: Academic.primary },
-  copyText: { color: Academic.textSecondary, fontSize: 16, fontWeight: '900' },
+  copyText: { color: Academic.textSecondary, fontSize: 16, fontWeight: '500' },
   copyTextActive: { color: '#FFFFFF' },
   submitButton: {
     height: 52,
@@ -417,9 +476,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.primary,
   },
-  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   errorBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.errorBg },
-  errorText: { color: Academic.error, fontSize: 13, fontWeight: '800' },
+  errorText: { color: Academic.error, fontSize: 13, fontWeight: '500' },
   successBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.successBg },
-  successText: { color: Academic.success, fontSize: 13, fontWeight: '800' },
+  successText: { color: Academic.success, fontSize: 13, fontWeight: '500' },
+  infoBox: { borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Academic.softBlue },
+  infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
 });

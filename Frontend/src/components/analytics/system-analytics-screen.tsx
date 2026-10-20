@@ -18,14 +18,14 @@ import {
   AcademicIcon,
   AppBackdrop,
   EmptyState,
-  RoleHeroHeader,
   SectionHeader,
   StatusBadge,
   SurfaceCard,
   type StatusTone,
 } from '@/components/ui/academic-ui';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Layout, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/context/theme';
+import { apiGet } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
 type CountGroup = Record<string, number>;
@@ -145,29 +145,69 @@ function DistributionRow({ label, value, total, color }: { label: string; value:
   );
 }
 
-function UsageCard({ item, windowDays, wide }: { item: UsageItem; windowDays: number; wide: boolean }) {
+interface QueueAnalytics {
+  activeLoad: number;
+  arrivalsPerHour: number;
+  resolvedCount: number;
+  mostLikelyMinutes: number | null;
+  expectedTriangularMinutes: number | null;
+  estimateSource: string;
+  calculatedAt: string;
+}
+
+function AggregateBar({ item, maximum }: { item: UsageItem; maximum: number }) {
+  const { colors } = useAppTheme();
+  const value = item.recent;
+  const width = maximum > 0 ? Math.max(3, Math.min(100, (value / maximum) * 100)) : 0;
+
+  return (
+    <View style={styles.aggregateRow}>
+      <View style={styles.aggregateHeader}>
+        <View style={styles.aggregateLabelGroup}>
+          <View style={[styles.aggregateIcon, { backgroundColor: colors.softBlue }]}>
+            <AcademicIcon name={item.icon} color={colors.primary} size={17} />
+          </View>
+          <View style={styles.aggregateCopy}>
+            <Text style={[styles.aggregateLabel, { color: colors.text }]}>{item.label}</Text>
+            <Text style={[styles.aggregateDescription, { color: colors.textSecondary }]} numberOfLines={1}>{item.description}</Text>
+          </View>
+        </View>
+        <Text selectable style={[styles.aggregateValue, { color: colors.text }]}>{compact(value)}</Text>
+      </View>
+      <View style={[styles.aggregateTrack, { backgroundColor: colors.muted }]}>
+        <View style={[styles.aggregateFill, { backgroundColor: colors.primary, width: `${width}%` }]} />
+      </View>
+    </View>
+  );
+}
+
+function ActivityTableRow({ item, windowDays, compactLayout }: { item: UsageItem; windowDays: number; compactLayout: boolean }) {
   const { colors } = useAppTheme();
   return (
-    <SurfaceCard style={[styles.usageCard, wide && styles.usageCardWide]} accent={item.tone === 'muted' || item.tone === 'navy' ? undefined : item.tone}>
-      <View style={styles.usageTopRow}>
-        <View style={[styles.usageIcon, { backgroundColor: colors.softBlue }]}>
-          <AcademicIcon name={item.icon} color={colors.primary} size={21} />
+    <View style={[styles.activityRow, compactLayout && styles.activityRowCompact, { borderTopColor: colors.border }]}>
+      <View style={[styles.activityService, compactLayout && styles.activityServiceCompact]}>
+        <View style={[styles.activityIcon, { backgroundColor: colors.softBlue }]}>
+          <AcademicIcon name={item.icon} color={colors.primary} size={17} />
         </View>
-        <StatusBadge label={item.status} tone={item.tone} />
-      </View>
-      <Text style={[styles.usageTitle, { color: colors.text }]}>{item.label}</Text>
-      <Text style={[styles.usageDescription, { color: colors.textSecondary }]}>{item.description}</Text>
-      <View style={styles.usageStats}>
-        <View>
-          <Text selectable style={[styles.usageNumber, { color: colors.text }]}>{compact(item.total)}</Text>
-          <Text style={[styles.usageStatLabel, { color: colors.textSecondary }]}>Total</Text>
-        </View>
-        <View style={styles.usageRecent}>
-          <Text selectable style={[styles.usageNumber, { color: colors.primary }]}>+{compact(item.recent)}</Text>
-          <Text style={[styles.usageStatLabel, { color: colors.textSecondary }]}>Last {windowDays} days</Text>
+        <View style={styles.activityCopy}>
+          <Text style={[styles.activityTitle, { color: colors.text }]}>{item.label}</Text>
+          <Text style={[styles.activityDescription, { color: colors.textSecondary }]} numberOfLines={1}>{item.description}</Text>
         </View>
       </View>
-    </SurfaceCard>
+      <View style={[styles.activityDetails, compactLayout && styles.activityDetailsCompact]}>
+        <View style={styles.activityMetric}>
+          <Text selectable style={[styles.activityMetricValue, { color: colors.text }]}>{compact(item.recent)}</Text>
+          <Text style={[styles.activityMetricLabel, { color: colors.textSecondary }]}>{windowDays}-day activity</Text>
+        </View>
+        <View style={styles.activityMetric}>
+          <Text selectable style={[styles.activityMetricValue, { color: colors.text }]}>{compact(item.total)}</Text>
+          <Text style={[styles.activityMetricLabel, { color: colors.textSecondary }]}>All time</Text>
+        </View>
+        <View style={styles.activityStatus}>
+          <StatusBadge label={item.status} tone={item.tone} />
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -177,21 +217,30 @@ function SystemAnalyticsContent() {
   const [windowDays, setWindowDays] = useState<(typeof WINDOWS)[number]>(30);
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
   const [service, setService] = useState<ServiceHealth>({ state: 'not_configured', latencyMs: null });
+  const [queueAnalytics, setQueueAnalytics] = useState<QueueAnalytics | null>(null);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [queryLatency, setQueryLatency] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const wide = viewportWidth >= 760;
+  const compactTable = viewportWidth < Layout.compactBreakpoint;
 
   const fetchAnalytics = useCallback(async () => {
     setError(null);
     const started = Date.now();
-    const [analyticsResult, healthResult] = await Promise.all([
+    const queueResult = apiGet<QueueAnalytics>(`/api/queue/analytics?windowHours=${windowDays * 24}`)
+      .then(data => ({ data, error: null as string | null }))
+      .catch(() => ({ data: null, error: 'Queue analytics are unavailable.' }));
+    const [analyticsResult, healthResult, resolvedQueue] = await Promise.all([
       supabase.rpc('get_system_analytics', { p_window_days: windowDays }),
       checkApi(),
+      queueResult,
     ]);
     setQueryLatency(Date.now() - started);
     setService(healthResult);
+    setQueueAnalytics(resolvedQueue.data);
+    setQueueError(resolvedQueue.error);
     if (analyticsResult.error) {
       setError(analyticsResult.error.message);
       return;
@@ -270,6 +319,9 @@ function SystemAnalyticsContent() {
     ];
   }, [snapshot]);
 
+  const recentActivityTotal = featureUsage.reduce((sum, item) => sum + item.recent, 0);
+  const largestRecentActivity = featureUsage.reduce((largest, item) => Math.max(largest, item.recent), 0);
+
   const serviceLabel = service.state === 'operational'
     ? 'Operational'
     : service.state === 'not_configured'
@@ -286,39 +338,61 @@ function SystemAnalyticsContent() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         contentContainerStyle={styles.scroll}>
         <View style={styles.content}>
-          <RoleHeroHeader
-            label="Super Administrator"
-            title="System Analytics"
-            subtitle="Live performance, operational health, and feature adoption across CAS Assist."
-            right={(
-              <View style={styles.heroAnalyticsIcon}>
-                <AcademicIcon name={{ ios: 'chart.bar.xaxis', android: 'analytics', web: 'analytics' }} color="#FFFFFF" size={27} />
+          <SurfaceCard style={styles.reportHeader}>
+            <View style={styles.reportHeading}>
+              <View style={styles.reportEyebrow}>
+                <View style={[styles.reportEyebrowDot, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.reportEyebrowText, { color: colors.primary }]}>REPORTING WORKSPACE</Text>
               </View>
-            )}
-          />
+              <Text style={[styles.reportTitle, { color: colors.text }]}>System analytics</Text>
+              <Text style={[styles.reportSubtitle, { color: colors.textSecondary }]}>A focused view of service activity, operational health, and academic platform coverage.</Text>
+            </View>
+            <View style={[styles.reportContext, { backgroundColor: colors.softBlue }]}>
+              <AcademicIcon name={{ ios: 'chart.bar.xaxis', android: 'analytics', web: 'analytics' }} color={colors.primary} size={22} />
+              <Text style={[styles.reportContextTitle, { color: colors.text }]}>Super Admin view</Text>
+              <Text style={[styles.reportContextCaption, { color: colors.textSecondary }]}>Authorized aggregate data</Text>
+            </View>
+          </SurfaceCard>
 
-          <View style={styles.toolbar}>
-            <View style={styles.windowRail}>
-              {WINDOWS.map(days => {
-                const selected = windowDays === days;
-                return (
-                  <Pressable
-                    key={days}
-                    onPress={() => setWindowDays(days)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    style={[styles.windowButton, { backgroundColor: selected ? colors.primary : colors.muted }]}>
-                    <Text style={[styles.windowText, { color: selected ? '#FFFFFF' : colors.textSecondary }]}>{days} days</Text>
-                  </Pressable>
-                );
-              })}
+          <SurfaceCard style={styles.toolbarCard}>
+            <View style={styles.toolbarCopy}>
+              <Text style={[styles.toolbarLabel, { color: colors.text }]}>Reporting period</Text>
+              <Text style={[styles.toolbarHint, { color: colors.textSecondary }]}>Choose a supported snapshot window</Text>
+            </View>
+            <View style={styles.toolbarControls}>
+              <View style={styles.windowRail}>
+                {WINDOWS.map(days => {
+                  const selected = windowDays === days;
+                  return (
+                    <Pressable
+                      key={days}
+                      onPress={() => setWindowDays(days)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Show analytics for the last ${days} days`}
+                      accessibilityState={{ selected }}
+                      style={({ pressed }) => [styles.windowButton, { backgroundColor: selected ? colors.primary : colors.muted }, pressed && styles.pressed]}>
+                      <Text style={[styles.windowText, { color: selected ? '#FFFFFF' : colors.textSecondary }]}>{days} days</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Pressable
+                onPress={onRefresh}
+                disabled={refreshing}
+                accessibilityRole="button"
+                accessibilityLabel="Refresh analytics"
+                accessibilityState={{ disabled: refreshing, busy: refreshing }}
+                style={({ pressed }) => [styles.refreshButton, { borderColor: colors.border, backgroundColor: colors.surface }, pressed && styles.pressed, refreshing && styles.refreshDisabled]}>
+                <AcademicIcon name={{ ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' }} color={colors.primary} size={17} />
+                <Text style={[styles.refreshText, { color: colors.primary }]}>Refresh</Text>
+              </Pressable>
             </View>
             {snapshot ? (
               <Text selectable style={[styles.updatedText, { color: colors.textSecondary }]}>
                 Updated {new Date(snapshot.generatedAt).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}
               </Text>
             ) : null}
-          </View>
+          </SurfaceCard>
 
           {loading ? (
             <View style={styles.loadingState}>
@@ -362,8 +436,13 @@ function SystemAnalyticsContent() {
                     <Text style={[styles.healthDetailLabel, { color: colors.textSecondary }]}>Pending verification</Text>
                     <Text selectable style={[styles.healthDetailValue, { color: colors.text }]}>{compact(number(snapshot.users.pendingVerification))}</Text>
                   </View>
+                  <View style={styles.healthDetail}>
+                    <Text style={[styles.healthDetailLabel, { color: colors.textSecondary }]}>Queue active load</Text>
+                    <Text selectable style={[styles.healthDetailValue, { color: colors.text }]}>{queueAnalytics ? compact(number(queueAnalytics.activeLoad)) : '—'}</Text>
+                  </View>
                 </View>
               </SurfaceCard>
+              {queueError ? <Text style={[styles.optionalNote, { color: colors.textSecondary }]}>{queueError} The core system analytics report remains available.</Text> : null}
 
               <View style={[styles.metricGrid, wide && styles.metricGridWide]}>
                 <OverviewMetric
@@ -396,6 +475,54 @@ function SystemAnalyticsContent() {
                 />
               </View>
 
+              <BentoGrid style={styles.primaryReportGrid}>
+                <BentoPanel size="wide" style={wide ? [styles.column, styles.activityPanelWide] : styles.column}>
+                  <SectionHeader title="Activity by service" badge={`${windowDays}-day window`} />
+                  <SurfaceCard style={styles.aggregatePanel}>
+                    <View style={styles.aggregatePanelIntro}>
+                      <View style={styles.aggregatePanelCopy}>
+                        <Text style={[styles.aggregatePanelTitle, { color: colors.text }]}>Recent activity volume</Text>
+                        <Text style={[styles.aggregatePanelDescription, { color: colors.textSecondary }]}>Real counts returned by the authorized system analytics snapshot.</Text>
+                      </View>
+                      <View style={styles.aggregatePanelTotal}>
+                        <Text selectable style={[styles.aggregatePanelTotalValue, { color: colors.text }]}>{compact(recentActivityTotal)}</Text>
+                        <Text style={[styles.aggregatePanelTotalLabel, { color: colors.textSecondary }]}>events</Text>
+                      </View>
+                    </View>
+                    <View style={styles.aggregateBars}>
+                      {featureUsage.map(item => <AggregateBar key={item.label} item={item} maximum={largestRecentActivity} />)}
+                    </View>
+                  </SurfaceCard>
+                </BentoPanel>
+                <BentoPanel size="compact" style={wide ? [styles.column, styles.signalPanelWide] : [styles.column, styles.signalPanelStacked]}>
+                  <SectionHeader title="Operational signals" />
+                  <SurfaceCard style={[styles.signalPanel, wide && styles.signalCardWide]}>
+                    <View style={[styles.signalRow, styles.signalFirstRow]}>
+                      <View style={[styles.signalIcon, { backgroundColor: colors.softBlue }]}><AcademicIcon name={{ ios: 'person.2', android: 'groups', web: 'groups' }} color={colors.primary} size={18} /></View>
+                      <View style={styles.signalCopy}><Text style={[styles.signalLabel, { color: colors.textSecondary }]}>Active accounts</Text><Text selectable style={[styles.signalValue, { color: colors.text }]}>{compact(number(snapshot.users.active))}</Text></View>
+                    </View>
+                    <View style={[styles.signalRow, { borderTopColor: colors.border }]}>
+                      <View style={[styles.signalIcon, { backgroundColor: colors.warningBg }]}><AcademicIcon name={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} color={colors.warning} size={18} /></View>
+                      <View style={styles.signalCopy}><Text style={[styles.signalLabel, { color: colors.textSecondary }]}>Pending verification</Text><Text selectable style={[styles.signalValue, { color: colors.text }]}>{compact(number(snapshot.users.pendingVerification))}</Text></View>
+                    </View>
+                    <View style={[styles.signalRow, { borderTopColor: colors.border }]}>
+                      <View style={[styles.signalIcon, { backgroundColor: colors.errorBg }]}><AcademicIcon name={{ ios: 'exclamationmark.circle', android: 'priority_high', web: 'priority_high' }} color={colors.error} size={18} /></View>
+                      <View style={styles.signalCopy}><Text style={[styles.signalLabel, { color: colors.textSecondary }]}>Action required</Text><Text selectable style={[styles.signalValue, { color: colors.text }]}>{compact(number(snapshot.advising.actionRequired))}</Text></View>
+                    </View>
+                    <View style={[styles.signalRow, { borderTopColor: colors.border }]}>
+                      <View style={[styles.signalIcon, { backgroundColor: colors.successBg }]}><AcademicIcon name={{ ios: 'doc.text', android: 'description', web: 'description' }} color={colors.success} size={18} /></View>
+                      <View style={styles.signalCopy}><Text style={[styles.signalLabel, { color: colors.textSecondary }]}>Documents processing</Text><Text selectable style={[styles.signalValue, { color: colors.text }]}>{compact(number(snapshot.documents.pending))}</Text></View>
+                    </View>
+                    {queueAnalytics ? (
+                      <View style={[styles.signalRow, { borderTopColor: colors.border }]}>
+                        <View style={[styles.signalIcon, { backgroundColor: colors.softBlue }]}><AcademicIcon name={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }} color={colors.primary} size={18} /></View>
+                        <View style={styles.signalCopy}><Text style={[styles.signalLabel, { color: colors.textSecondary }]}>Queue active load</Text><Text selectable style={[styles.signalValue, { color: colors.text }]}>{compact(number(queueAnalytics.activeLoad))}</Text></View>
+                      </View>
+                    ) : null}
+                  </SurfaceCard>
+                </BentoPanel>
+              </BentoGrid>
+
               <BentoGrid style={styles.twoColumn}>
                 <BentoPanel size="medium" style={styles.column}>
                   <SectionHeader title="Account Distribution" />
@@ -417,14 +544,26 @@ function SystemAnalyticsContent() {
                 </BentoPanel>
               </BentoGrid>
 
-              <SectionHeader title="Feature Usage" badge={`${windowDays}-day activity`} />
-              <BentoGrid>
-                {featureUsage.map(item => (
-                  <BentoPanel key={item.label} size="medium">
-                    <UsageCard item={item} windowDays={windowDays} wide={false} />
-                  </BentoPanel>
-                ))}
-              </BentoGrid>
+              <SectionHeader title="Service activity breakdown" badge="Aggregate report" />
+              <SurfaceCard style={styles.activityTable}>
+                <View style={[styles.activityTableHeader, compactTable && styles.activityTableHeaderCompact]}>
+                  <View style={styles.activityService}>
+                    <Text style={[styles.activityTableHeading, { color: colors.textSecondary }]}>Service area</Text>
+                  </View>
+                  <View style={styles.activityDetails}>
+                    <View style={styles.activityMetric}>
+                      <Text style={[styles.activityTableHeading, { color: colors.textSecondary }]}>{windowDays} days</Text>
+                    </View>
+                    <View style={styles.activityMetric}>
+                      <Text style={[styles.activityTableHeading, { color: colors.textSecondary }]}>All time</Text>
+                    </View>
+                    <View style={styles.activityStatus}>
+                      <Text style={[styles.activityTableHeading, { color: colors.textSecondary }]}>Status</Text>
+                    </View>
+                  </View>
+                </View>
+                {featureUsage.map(item => <ActivityTableRow key={item.label} item={item} windowDays={windowDays} compactLayout={compactTable} />)}
+              </SurfaceCard>
 
               <SectionHeader title="Academic & Knowledge Coverage" />
               <SurfaceCard style={styles.coverageCard}>
@@ -472,56 +611,111 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: Spacing.three, paddingBottom: 132 },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: Spacing.three },
-  heroAnalyticsIcon: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.18)' },
-  toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
-  windowRail: { flexDirection: 'row', gap: Spacing.two },
+  reportHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.four, padding: Spacing.four },
+  reportHeading: { flex: 1, minWidth: 230, gap: Spacing.one },
+  reportEyebrow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 3 },
+  reportEyebrowDot: { width: 7, height: 7, borderRadius: 4 },
+  reportEyebrowText: { fontSize: 11, fontWeight: '600', letterSpacing: 1.1 },
+  reportTitle: { fontSize: 30, lineHeight: 36, fontWeight: '600', letterSpacing: -0.7 },
+  reportSubtitle: { maxWidth: 650, fontSize: 13, lineHeight: 20 },
+  reportContext: { minWidth: 178, padding: Spacing.three, borderRadius: 18, alignItems: 'flex-start', gap: 5 },
+  reportContextTitle: { fontSize: 13, fontWeight: '600' },
+  reportContextCaption: { fontSize: 11, lineHeight: 16 },
+  toolbarCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.three, padding: Spacing.three },
+  toolbarCopy: { flex: 1, minWidth: 180, gap: 2 },
+  toolbarLabel: { fontSize: 13, fontWeight: '500' },
+  toolbarHint: { fontSize: 11, lineHeight: 16 },
+  toolbarControls: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.two },
+  windowRail: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   windowButton: { minHeight: 36, paddingHorizontal: 13, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  windowText: { fontSize: 12, fontWeight: '900' },
-  updatedText: { fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  windowText: { fontSize: 12, fontWeight: '500' },
+  refreshButton: { minHeight: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  refreshText: { fontSize: 12, fontWeight: '500' },
+  refreshDisabled: { opacity: 0.6 },
+  updatedText: { fontSize: 11, fontWeight: '400', fontVariant: ['tabular-nums'] },
+  pressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
   loadingState: { minHeight: 280, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
-  loadingText: { fontSize: 14, fontWeight: '700' },
+  loadingText: { fontSize: 14, fontWeight: '400' },
   healthCard: { gap: Spacing.three },
   healthHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   healthIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   healthCopy: { flex: 1, gap: 2 },
-  healthTitle: { fontSize: 16, fontWeight: '900' },
+  healthTitle: { fontSize: 16, fontWeight: '600' },
   healthSubtitle: { fontSize: 12, lineHeight: 17 },
   healthDetails: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: Spacing.three, borderTopWidth: 1, gap: Spacing.three },
   healthDetail: { flex: 1, minWidth: 112, gap: 3 },
-  healthDetailLabel: { fontSize: 11, fontWeight: '700' },
-  healthDetailValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  healthDetailLabel: { fontSize: 11, fontWeight: '500' },
+  healthDetailValue: { fontSize: 17, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  optionalNote: { fontSize: 11, lineHeight: 16, paddingHorizontal: 3 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   metricGridWide: { gap: Spacing.three },
-  overviewMetric: { width: '48%', minWidth: 145, gap: 5 },
+  overviewMetric: { width: '48%', minWidth: 145, minHeight: 132, justifyContent: 'space-between', gap: 5 },
   overviewMetricWide: { width: '22.8%', flexGrow: 1 },
   metricIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  metricValue: { fontSize: 25, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  metricLabel: { fontSize: 13, fontWeight: '900' },
+  metricValue: { fontSize: 25, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  metricLabel: { fontSize: 13, fontWeight: '500' },
   metricDetail: { fontSize: 11, lineHeight: 16 },
+  primaryReportGrid: { gap: Spacing.three, alignItems: 'stretch' },
+  activityPanelWide: { flexBasis: '65%' },
+  signalPanelWide: { flexBasis: '32%' },
+  signalPanelStacked: { flexBasis: '100%' },
   twoColumn: { gap: Spacing.three },
   column: { gap: Spacing.two },
   chartCard: { gap: Spacing.three },
   distributionRow: { gap: 7 },
   distributionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
-  distributionLabel: { fontSize: 12, fontWeight: '700' },
-  distributionValue: { fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  barTrack: { height: 8, borderRadius: 999, overflow: 'hidden' },
+  distributionLabel: { fontSize: 12, fontWeight: '500' },
+  distributionValue: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  barTrack: { height: 5, borderRadius: 999, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 999 },
-  usageGrid: { gap: Spacing.three },
-  usageGridWide: { flexDirection: 'row', flexWrap: 'wrap' },
-  usageCard: { width: '100%', gap: Spacing.two },
-  usageCardWide: { width: '48%', flexGrow: 1 },
-  usageTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
-  usageIcon: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  usageTitle: { fontSize: 15, fontWeight: '900' },
-  usageDescription: { fontSize: 12, lineHeight: 17 },
-  usageStats: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingTop: Spacing.one },
-  usageRecent: { alignItems: 'flex-end' },
-  usageNumber: { fontSize: 19, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  usageStatLabel: { fontSize: 10, fontWeight: '700' },
+  aggregatePanel: { gap: Spacing.three },
+  aggregatePanelIntro: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.three },
+  aggregatePanelCopy: { flex: 1, gap: 3 },
+  aggregatePanelTitle: { fontSize: 15, fontWeight: '600' },
+  aggregatePanelDescription: { fontSize: 12, lineHeight: 17 },
+  aggregatePanelTotal: { alignItems: 'flex-end' },
+  aggregatePanelTotalValue: { fontSize: 22, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  aggregatePanelTotalLabel: { fontSize: 10, fontWeight: '500' },
+  aggregateBars: { gap: Spacing.two },
+  aggregateRow: { gap: 7 },
+  aggregateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  aggregateLabelGroup: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  aggregateIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  aggregateCopy: { flex: 1, minWidth: 0, gap: 1 },
+  aggregateLabel: { fontSize: 12, fontWeight: '500' },
+  aggregateDescription: { fontSize: 10, lineHeight: 15 },
+  aggregateValue: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  aggregateTrack: { height: 5, marginLeft: 44, borderRadius: 999, overflow: 'hidden' },
+  aggregateFill: { height: '100%', borderRadius: 999 },
+  signalPanel: { paddingVertical: 0 },
+  signalCardWide: { flex: 1, justifyContent: 'space-between' },
+  signalRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 11, borderTopWidth: 1 },
+  signalFirstRow: { borderTopWidth: 0 },
+  signalIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  signalCopy: { flex: 1, gap: 2 },
+  signalLabel: { fontSize: 11, fontWeight: '500' },
+  signalValue: { fontSize: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  activityTable: { paddingVertical: 0 },
+  activityTableHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderBottomWidth: 1 },
+  activityTableHeaderCompact: { display: 'none' },
+  activityTableHeading: { fontSize: 10, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.45, textAlign: 'right' },
+  activityRow: { minHeight: 70, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: 10, borderTopWidth: 1 },
+  activityRowCompact: { minHeight: 0, flexDirection: 'column', alignItems: 'stretch', gap: Spacing.two, paddingVertical: 12 },
+  activityService: { flex: 1, minWidth: 170, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  activityServiceCompact: { flex: 0, width: '100%', minWidth: 0 },
+  activityDetails: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  activityDetailsCompact: { width: '100%', justifyContent: 'flex-end' },
+  activityIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  activityCopy: { flex: 1, minWidth: 0, gap: 1 },
+  activityTitle: { fontSize: 12, fontWeight: '600' },
+  activityDescription: { fontSize: 10, lineHeight: 15 },
+  activityMetric: { width: 82, gap: 2, alignItems: 'flex-end', flexShrink: 0 },
+  activityMetricValue: { fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  activityMetricLabel: { fontSize: 10, lineHeight: 14, textAlign: 'right' },
+  activityStatus: { width: 112, alignItems: 'flex-end', flexShrink: 0 },
   coverageCard: { gap: 0 },
   coverageItem: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 11 },
-  coverageLabel: { flex: 1, fontSize: 13, fontWeight: '700' },
-  coverageValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  coverageLabel: { flex: 1, fontSize: 13, fontWeight: '500' },
+  coverageValue: { fontSize: 17, fontWeight: '600', fontVariant: ['tabular-nums'] },
   coverageDivider: { height: 1, marginLeft: 32 },
 });

@@ -1,5 +1,5 @@
 import { BlurView } from 'expo-blur';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { useWindowDimensions, type ColorValue } from 'react-native';
 
 import { AcademicIcon, type AcademicIconName } from '@/components/ui/academic-ui';
@@ -10,7 +10,7 @@ import { Fonts, Layout } from '@/constants/theme';
 function tabIcon(name: AcademicIconName) {
   return function TabBarIcon({ color, size }: { color: ColorValue; size: number }) {
     return (
-      <AcademicIcon name={name} color={String(color)} size={size} />
+      <AcademicIcon name={name} color={String(color)} size={size} animated={false} />
     );
   };
 }
@@ -19,12 +19,14 @@ export default function AppTabs() {
   const { colors, resolvedTheme } = useAppTheme();
   const { profile } = useAuth();
   const { width } = useWindowDimensions();
+  const pathname = usePathname();
   const role = profile?.role;
   const isStudent = role === 'student';
   const isFaculty = role === 'faculty';
   const isStaff = role === 'staff';
   const isSuperAdmin = role === 'super_admin';
   const showLabels = width >= 390;
+  const detailRoute = pathname.startsWith('/ticket/');
 
   return (
     <Tabs
@@ -36,7 +38,7 @@ export default function AppTabs() {
         tabBarHideOnKeyboard: true,
         tabBarBackground: () => (
           <BlurView
-            intensity={resolvedTheme === 'dark' ? 44 : 68}
+            intensity={resolvedTheme === 'dark' ? 30 : 42}
             tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
             experimentalBlurMethod="dimezisBlurView"
             style={{ flex: 1 }}
@@ -50,7 +52,8 @@ export default function AppTabs() {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           borderTopColor: 'transparent',
-          boxShadow: '0 -12px 36px rgba(20, 52, 49, 0.10)',
+          boxShadow: '0 -4px 16px rgba(20, 52, 49, 0.06)',
+          ...(detailRoute ? { display: 'none' } : {}),
         },
         tabBarLabelStyle: {
           fontFamily: Fonts.sans,
@@ -59,7 +62,7 @@ export default function AppTabs() {
           letterSpacing: 0.1,
         },
         tabBarItemStyle: {
-          borderRadius: 14,
+          borderRadius: 10,
           marginHorizontal: width >= Layout.compactBreakpoint ? 3 : 1,
           marginVertical: 4,
         },
@@ -119,6 +122,7 @@ export default function AppTabs() {
       />
       <Tabs.Screen name="chatbot" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="faq" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="ticket/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Protected guard={isStudent}>
         <Tabs.Screen name="documents" options={{ href: null }} />
       </Tabs.Protected>

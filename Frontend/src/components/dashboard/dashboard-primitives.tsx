@@ -7,7 +7,7 @@ import {
   type AcademicIconName,
   type StatusTone,
 } from '@/components/ui/academic-ui';
-import { Fonts, Radius, Spacing, TypeScale } from '@/constants/theme';
+import { Fonts, Layout, Radius, Spacing, TypeScale } from '@/constants/theme';
 import { useAppTheme } from '@/context/theme';
 
 type DashboardActionTone = Extract<StatusTone, 'blue' | 'success' | 'warning' | 'error'>;
@@ -63,7 +63,7 @@ export function DashboardActionCard({
         focused && { outlineStyle: 'solid', outlineWidth: 2, outlineColor: colors.primary, outlineOffset: 2 },
         pressed && styles.actionPressed,
       ]}>
-      <SurfaceCard accent={tone} style={[styles.actionCard, { borderColor: hovered || focused ? toneColors.foreground : colors.border }]}>
+      <SurfaceCard style={[styles.actionCard, { borderColor: hovered || focused ? toneColors.foreground : colors.border }]}>
         <View style={[styles.actionIcon, { backgroundColor: toneColors.background }]}>
           <AcademicIcon name={icon} color={toneColors.foreground} size={21} />
         </View>
@@ -111,8 +111,8 @@ export function BentoPanel({
   style?: object;
 }) {
   const { width } = useWindowDimensions();
-  const isMobile = width < 720;
-  const isDesktop = width >= 980;
+  const isMobile = width < Layout.compactBreakpoint;
+  const isDesktop = width >= Layout.wideBreakpoint;
   const basis = isMobile
     ? '100%'
     : size === 'wide'
@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'stretch',
     gap: Spacing.three,
+    minWidth: 0,
   },
   bentoPanel: {
     minWidth: 0,
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: TypeScale.control,
     lineHeight: 19,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   actionCaption: {
     fontFamily: Fonts.sans,

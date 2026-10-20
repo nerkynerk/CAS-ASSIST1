@@ -49,6 +49,12 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     ? deviceScheme === 'dark' ? 'dark' : 'light'
     : preference;
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.dataset.theme = resolvedTheme;
+    document.documentElement.style.colorScheme = resolvedTheme;
+  }, [resolvedTheme]);
+
   const value = useMemo<ThemeContextValue>(() => ({
     preference,
     resolvedTheme,

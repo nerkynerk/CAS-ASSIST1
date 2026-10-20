@@ -1,14 +1,36 @@
 :root {
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, Helvetica, Arial,
-    sans-serif;
-  --font-display:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Inter, Roboto, Helvetica, Arial,
-    sans-serif;
+    Inter, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  --font-display: var(--font-sans);
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-serif: var(--font-sans);
+
+  /* Dark-mode aware body colors */
+  --body-bg: #f5f7f6;
+  --body-color: #132523;
+  --selection-bg: rgba(11, 125, 119, 0.78);
+  --selection-color: #ffffff;
+  --focus-ring: rgba(11, 125, 119, 0.45);
+  --glass-standard: rgba(255, 255, 255, 0.9);
+  --glass-strong: rgba(255, 255, 255, 0.96);
+  --glass-soft: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(19, 62, 59, 0.11);
+  --glass-blur: 6px;
+}
+
+:root[data-theme='dark'] {
+  --body-bg: #0C1716;
+  --body-color: #F2F7F5;
+  --selection-bg: rgba(94, 209, 200, 0.42);
+  --selection-color: #ffffff;
+  --focus-ring: rgba(94, 209, 200, 0.5);
+  --glass-standard: rgba(24, 40, 38, 0.9);
+  --glass-strong: rgba(24, 40, 38, 0.96);
+  --glass-soft: rgba(24, 40, 38, 0.78);
+  --glass-border: rgba(211, 237, 231, 0.11);
 }
 
 html,
@@ -16,10 +38,11 @@ body,
 #root {
   width: 100%;
   min-height: 100%;
-  background: #f3f6f4;
+  background: var(--body-bg, #f3f6f4);
 }
 
 html {
+  scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
 }
@@ -32,7 +55,7 @@ body,
 
 body {
   margin: 0;
-  color: #132523;
+  color: var(--body-color, #132523);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -67,6 +90,11 @@ button,
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   padding-left: max(1rem, env(safe-area-inset-left, 0px));
   padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+@media (min-width: 980px) {
+  #app-tab-bar {
+    padding: 0;
 }
 
 @media (pointer: coarse) {

@@ -64,10 +64,13 @@ export default function ProfileScreen() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const role = profile?.role ?? 'student';
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const currentDisplayName = displayName.trim() || profile?.display_name || '';
+  const firstName = currentDisplayName.split(' ')[0] || 'there';
+  const canEdit = profile?.state !== 'archived_read_only';
 
   async function handleSave() {
     if (!displayName.trim()) { setSaveError('Name cannot be empty.'); return; }
+    if (!profile || !canEdit) { setSaveError('This profile cannot be edited.'); return; }
     setSaveError(null);
     setSaving(true);
 
@@ -95,15 +98,15 @@ export default function ProfileScreen() {
           title={`Hello, ${firstName}`}
           subtitle="Manage your institutional account details."
           right={
-            <View style={styles.avatar}>
-              <Text style={styles.avatarLetter}>{(profile?.display_name ?? 'U')[0].toUpperCase()}</Text>
+            <View style={[styles.avatar, { backgroundColor: theme.softBlue, borderColor: theme.border }]}>
+              <Text style={[styles.avatarLetter, { color: theme.primary }]}>{(currentDisplayName || 'U')[0].toUpperCase()}</Text>
             </View>
           }
         />
 
         <SurfaceCard style={styles.identityCard}>
           {!editing ? (
-            <Text style={[styles.displayName, { color: theme.navy }]}>{profile?.display_name ?? 'No name set'}</Text>
+            <Text style={[styles.displayName, { color: theme.navy }]}>{currentDisplayName || 'No name set'}</Text>
           ) : (
             <TextInput
               style={[
@@ -130,9 +133,10 @@ export default function ProfileScreen() {
 
         {saveError ? <View style={styles.errorBox}><Text style={styles.errorText}>{saveError}</Text></View> : null}
         {saveSuccess ? <View style={styles.successBox}><Text style={styles.successText}>Profile updated successfully.</Text></View> : null}
+        {!canEdit ? <View style={[styles.readOnlyBox, { backgroundColor: theme.warningBg }]}><AcademicIcon name={{ ios: 'lock', android: 'lock', web: 'lock' }} color={theme.warning} size={17} /><Text style={[styles.readOnlyText, { color: theme.navy }]}>This account is read-only. Contact a CAS administrator to change account details.</Text></View> : null}
 
         <View style={[styles.sectionGrid, wideLayout && styles.sectionGridWide]}>
-          <View style={styles.sectionColumn}>
+          <View style={[styles.sectionColumn, wideLayout && styles.accountColumnWide]}>
             <SectionHeader title="Account" />
             <SurfaceCard style={styles.infoCard}>
               <InfoRow icon={{ ios: 'envelope', android: 'mail', web: 'mail' }} label="Email" value={profile?.email ?? '-'} />
@@ -157,7 +161,7 @@ export default function ProfileScreen() {
             </SurfaceCard>
           </View>
 
-          <View style={styles.sectionColumn}>
+          <View style={[styles.sectionColumn, wideLayout && styles.appearanceColumnWide]}>
             <SectionHeader title="Appearance" />
             <SurfaceCard style={styles.appearanceCard}>
               {THEME_OPTIONS.map((option, index) => {
@@ -171,11 +175,11 @@ export default function ProfileScreen() {
                       onPress={() => setPreference(option.value)}
                       style={({ pressed }) => [
                         styles.themeOption,
-                        selected && { backgroundColor: Academic.softBlue },
+                        selected && { backgroundColor: theme.softBlue },
                         pressed && styles.pressed,
                       ]}>
-                      <View style={[styles.themeIcon, { backgroundColor: selected ? Academic.softBlue : Academic.muted }]}>
-                        <AcademicIcon name={option.icon} color={selected ? Academic.primary : Academic.textSecondary} size={20} />
+                      <View style={[styles.themeIcon, { backgroundColor: selected ? theme.softBlue : theme.muted }]}>
+                        <AcademicIcon name={option.icon} color={selected ? theme.primary : theme.textSecondary} size={20} />
                       </View>
                       <View style={styles.themeCopy}>
                         <Text style={[styles.themeLabel, { color: theme.navy }]}>{option.label}</Text>
@@ -185,7 +189,7 @@ export default function ProfileScreen() {
                         name={selected
                           ? { ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }
                           : { ios: 'circle', android: 'radio_button_unchecked', web: 'radio_button_unchecked' }}
-                        color={selected ? Academic.primary : Academic.textSecondary}
+                        color={selected ? theme.primary : theme.textSecondary}
                         size={21}
                       />
                     </Pressable>
@@ -205,29 +209,32 @@ export default function ProfileScreen() {
           <InfoRow icon={{ ios: 'building.2', android: 'domain', web: 'domain' }} label="School" value="New Era University" />
         </SurfaceCard>
 
-        {!editing ? (
-          <Pressable
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
-            onPress={() => { setEditing(true); setDisplayName(profile?.display_name ?? ''); }}>
-            <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Edit Display Name</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.editRow}>
-            <Pressable style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]} onPress={() => setEditing(false)}>
-              <Text style={[styles.cancelButtonText, { color: theme.textSecondary }]}>Cancel</Text>
-            </Pressable>
+        <View style={[styles.profileActions, wideLayout && styles.profileActionsWide]}>
+          {!editing ? (
             <Pressable
-              style={({ pressed }) => [styles.saveButton, (pressed || saving) && styles.pressed]}
-              onPress={handleSave}
-              disabled={saving}>
-              {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Save</Text>}
+              style={({ pressed }) => [styles.secondaryButton, wideLayout && styles.wideActionButton, !canEdit && styles.disabledButton, pressed && styles.pressed]}
+              onPress={() => { setEditing(true); setDisplayName(profile?.display_name ?? ''); }}
+              disabled={!canEdit}>
+              <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Edit Display Name</Text>
             </Pressable>
-          </View>
-        )}
+          ) : (
+            <View style={[styles.editRow, wideLayout && styles.wideEditRow]}>
+              <Pressable style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]} onPress={() => setEditing(false)}>
+                <Text style={[styles.cancelButtonText, { color: theme.textSecondary }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.saveButton, (pressed || saving) && styles.pressed]}
+                onPress={handleSave}
+                disabled={saving}>
+                {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Save</Text>}
+              </Pressable>
+            </View>
+          )}
 
-        <Pressable style={({ pressed }) => [styles.signOutButton, { backgroundColor: theme.errorBg }, pressed && styles.pressed]} onPress={signOut}>
-          <Text style={[styles.signOutText, { color: theme.error }]}>Sign Out</Text>
-        </Pressable>
+          <Pressable style={({ pressed }) => [styles.signOutButton, wideLayout && styles.wideActionButton, { backgroundColor: theme.errorBg, borderColor: theme.errorBg }, pressed && styles.pressed]} onPress={signOut}>
+            <Text style={[styles.signOutText, { color: theme.error }]}>Sign Out</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -264,18 +271,18 @@ const styles = StyleSheet.create({
     paddingBottom: 128,
     gap: Spacing.three,
   },
-  pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.78 },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
   },
-  avatarLetter: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
+  avatarLetter: { fontSize: 22, fontWeight: '600' },
   identityCard: { gap: Spacing.two },
-  displayName: { color: Academic.navy, fontSize: 22, fontWeight: '700', letterSpacing: -0.35 },
+  displayName: { color: Academic.navy, fontSize: 22, fontWeight: '600', letterSpacing: -0.35 },
   nameInput: {
     minHeight: 48,
     borderRadius: 14,
@@ -285,80 +292,89 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.muted,
     fontFamily: Fonts.sans,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   sectionGrid: { gap: Spacing.three },
-  sectionGridWide: { flexDirection: 'row', alignItems: 'stretch' },
+  sectionGridWide: { flexDirection: 'row', alignItems: 'flex-start' },
   sectionColumn: { flex: 1, gap: Spacing.two, minWidth: 0 },
+  accountColumnWide: { flex: 1.08 },
+  appearanceColumnWide: { flex: 0.92 },
   infoCard: { paddingVertical: 4 },
   appearanceCard: { padding: 6 },
   themeOption: {
-    minHeight: 66,
-    borderRadius: 14,
-    paddingHorizontal: 10,
+    minHeight: 58,
+    borderRadius: 12,
+    paddingHorizontal: 11,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
   themeIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   themeCopy: { flex: 1, gap: 2 },
-  themeLabel: { color: Academic.navy, fontSize: 14, fontWeight: '900' },
+  themeLabel: { color: Academic.navy, fontSize: 14, fontWeight: '600' },
   themeDescription: { color: Academic.textSecondary, fontSize: 12, lineHeight: 16, fontWeight: '600' },
   infoRow: {
-    minHeight: 52,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.three,
   },
-  infoLeft: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  infoLabel: { color: Academic.textSecondary, fontSize: 13, fontWeight: '800' },
-  infoValue: { color: Academic.navy, fontSize: 14, fontWeight: '800', flex: 1, textAlign: 'right' },
+  infoLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  infoLabel: { color: Academic.textSecondary, fontSize: 13, fontWeight: '500' },
+  infoValue: { color: Academic.navy, fontSize: 14, fontWeight: '600', flex: 1, maxWidth: '60%', textAlign: 'right' },
   separator: { height: 1, backgroundColor: Academic.border },
+  profileActions: { gap: Spacing.two },
+  profileActionsWide: { flexDirection: 'row', alignItems: 'stretch' },
   secondaryButton: {
-    height: 52,
-    borderRadius: 16,
+    minHeight: 46,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Academic.softBlue,
   },
-  secondaryButtonText: { color: Academic.primary, fontSize: 15, fontWeight: '900' },
+  wideActionButton: { flex: 1 },
+  secondaryButtonText: { color: Academic.primary, fontSize: 14, fontWeight: '500' },
   editRow: { flexDirection: 'row', gap: Spacing.two },
+  wideEditRow: { flex: 1 },
   cancelButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 16,
+    minHeight: 46,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Academic.muted,
   },
-  cancelButtonText: { color: Academic.textSecondary, fontSize: 15, fontWeight: '900' },
+  cancelButtonText: { color: Academic.textSecondary, fontSize: 15, fontWeight: '500' },
   saveButton: {
     flex: 2,
-    height: 52,
-    borderRadius: 16,
+    minHeight: 46,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Academic.primary,
   },
-  saveButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  saveButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   signOutButton: {
-    height: 52,
-    borderRadius: 16,
+    minHeight: 46,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Academic.errorBg,
+    borderWidth: 1,
   },
-  signOutText: { color: Academic.error, fontSize: 15, fontWeight: '900' },
+  signOutText: { color: Academic.error, fontSize: 15, fontWeight: '500' },
   errorBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.errorBg },
-  errorText: { color: Academic.error, fontSize: 13, fontWeight: '800' },
+  errorText: { color: Academic.error, fontSize: 13, fontWeight: '500' },
   successBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.successBg },
-  successText: { color: Academic.success, fontSize: 13, fontWeight: '800' },
+  successText: { color: Academic.success, fontSize: 13, fontWeight: '500' },
+  readOnlyBox: { borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Academic.warningBg },
+  readOnlyText: { flex: 1, fontSize: 12, lineHeight: 18, fontWeight: '400' },
+  disabledButton: { opacity: 0.5 },
 });

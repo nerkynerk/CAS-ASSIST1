@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +17,7 @@ import {
   AcademicIcon,
   AppBackdrop,
   EmptyState,
+  MetricCard,
   SectionHeader,
   StatusBadge,
   SurfaceCard,
@@ -24,6 +25,7 @@ import {
   shortRef,
 } from '@/components/ui/academic-ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { BentoGrid, BentoPanel } from '@/components/dashboard/dashboard-primitives';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
@@ -35,6 +37,7 @@ interface Ticket {
   status: string;
   priority: string;
   created_at: string;
+  updated_at: string;
   student_id: { id: string; display_name: string; email: string } | null;
 }
 
@@ -70,7 +73,17 @@ interface DocRow {
   student_id: { display_name: string; email: string } | null;
 }
 
-type AdminTab = 'tickets' | 'announce' | 'documents' | 'users';
+interface AuditRow {
+  id: number;
+  ticket_id: string;
+  actor_id: string | null;
+  action: string;
+  old_data: { status?: string } | null;
+  new_data: { status?: string } | null;
+  created_at: string;
+}
+
+type AdminTab = 'tickets' | 'announce' | 'documents' | 'users' | 'audit';
 
 const STATUS_LABEL: Record<string, string> = {
   submitted: 'Submitted',
@@ -98,6 +111,8 @@ const NEXT_LABEL: Record<string, string> = {
   under_evaluation: 'Request Action',
   action_required: 'Resolve',
 };
+
+const TICKET_STATUS_FILTERS = ['all', 'submitted', 'under_evaluation', 'action_required', 'resolved'] as const;
 
 const AUDIENCE_OPTIONS = ['all', 'student', 'faculty', 'staff'] as const;
 const USER_ROLE_OPTIONS = ['all', 'student', 'faculty', 'staff', 'super_admin'] as const;
@@ -150,33 +165,83 @@ function formatDate(iso: string) {
 
 function ManagementCard({
   children,
-  accent,
 }: {
   children: React.ReactNode;
-  accent?: 'blue' | 'warning' | 'success' | 'error';
 }) {
-  return <SurfaceCard style={styles.managementCard} accent={accent}>{children}</SurfaceCard>;
+  return <SurfaceCard style={styles.managementCard}>{children}</SurfaceCard>;
+}
+
+type QueueFilterOption = { value: string; label: string };
+
+function QueueFilterSelect({
+  label,
+  value,
+  options,
+  expanded,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  options: QueueFilterOption[];
+  expanded: boolean;
+  onPress: () => void;
+}) {
+  const colors = useTheme();
+  const selected = options.find(option => option.value === value)?.label ?? value;
+
+  return (
+    <View style={styles.queueFilterSelect}>
+      <Text style={[styles.queueFilterLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${selected}`}
+        accessibilityState={{ expanded }}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.queueFilterControl,
+          { backgroundColor: colors.muted, borderColor: expanded ? colors.primary : colors.border },
+          pressed && styles.pressed,
+        ]}>
+        <Text style={[styles.queueFilterControlText, { color: colors.text }]} numberOfLines={1}>{selected}</Text>
+        <AcademicIcon
+          name={expanded
+            ? { ios: 'chevron.up', android: 'expand_less', web: 'expand_less' }
+            : { ios: 'chevron.down', android: 'expand_more', web: 'expand_more' }}
+          color={colors.textSecondary}
+          size={16}
+          animated={false}
+        />
+      </Pressable>
+    </View>
+  );
 }
 
 function AllTickets() {
+  const router = useRouter();
   const colors = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [query, setQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [sort, setSort] = useState<'updated' | 'newest' | 'oldest'>('updated');
+  const [openFilter, setOpenFilter] = useState<'status' | 'priority' | 'category' | 'sort' | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchTickets = useCallback(async () => {
-    let q = supabase
+    const { data, error } = await supabase
       .from('advising_ticket_pipeline')
-      .select('id, category, description, status, priority, created_at, student_id(id, display_name, email)')
+      .select('id, category, description, status, priority, created_at, updated_at, student_id(id, display_name, email)')
       .eq('state', 'active')
       .order('created_at', { ascending: false });
 
-    if (filter !== 'all') q = q.eq('status', filter);
-    const { data } = await q;
+    setLoadError(error ? 'We could not load the ticket queue. Please refresh and try again.' : null);
     setTickets((data as unknown as Ticket[]) ?? []);
-  }, [filter]);
+  }, []);
 
   const load = useCallback(async () => { setLoading(true); await fetchTickets(); setLoading(false); }, [fetchTickets]);
   async function onRefresh() { setRefreshing(true); await fetchTickets(); setRefreshing(false); }
@@ -186,48 +251,183 @@ function AllTickets() {
   async function advance(ticket: Ticket) {
     const next = NEXT_STATUS[ticket.status];
     if (!next) return;
+    setActionError(null);
     setUpdating(ticket.id);
     const updates: Record<string, unknown> = { status: next };
     if (next === 'resolved') updates.resolved_at = new Date().toISOString();
-    await supabase.from('advising_ticket_pipeline').update(updates).eq('id', ticket.id);
+    const { error } = await supabase.from('advising_ticket_pipeline').update(updates).eq('id', ticket.id);
     setUpdating(null);
+    if (error) {
+      setActionError('That status change was not accepted. Refresh and try again.');
+      return;
+    }
     await fetchTickets();
   }
 
-  const filters = ['all', 'submitted', 'under_evaluation', 'action_required', 'resolved'];
+  const categories = useMemo(() => (
+    Array.from(new Set(tickets.map(ticket => ticket.category).filter(Boolean))).sort()
+  ), [tickets]);
+  const visibleTickets = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return tickets
+      .filter(ticket => {
+        const student = ticket.student_id;
+        const searchable = `${shortRef(ticket.id)} ${ticket.category} ${ticket.description} ${student?.display_name ?? ''} ${student?.email ?? ''}`.toLowerCase();
+        return (filter === 'all' || ticket.status === filter)
+          && (categoryFilter === 'all' || ticket.category === categoryFilter)
+          && (priorityFilter === 'all' || ticket.priority === priorityFilter)
+          && (!normalizedQuery || searchable.includes(normalizedQuery));
+      })
+      .sort((left, right) => {
+        if (sort === 'oldest') return new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+        if (sort === 'newest') return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+        return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+      });
+  }, [categoryFilter, filter, priorityFilter, query, sort, tickets]);
+
+  function clearFilters() {
+    setFilter('all');
+    setQuery('');
+    setCategoryFilter('all');
+    setPriorityFilter('all');
+    setSort('updated');
+    setOpenFilter(null);
+  }
+
+  const statusOptions = useMemo(() => [
+    { value: 'all', label: 'All statuses' },
+    ...TICKET_STATUS_FILTERS.filter(item => item !== 'all').map(item => ({ value: item, label: STATUS_LABEL[item] ?? formatCategory(item) })),
+  ], []);
+  const priorityOptions = useMemo(() => [
+    { value: 'all', label: 'Any priority' },
+    ...['urgent', 'high', 'normal', 'low'].map(value => ({ value, label: formatCategory(value) })),
+  ], []);
+  const categoryOptions = useMemo(() => [
+    { value: 'all', label: 'All categories' },
+    ...categories.map(value => ({ value, label: formatCategory(value) })),
+  ], [categories]);
+  const sortOptions = useMemo(() => [
+    { value: 'updated', label: 'Recently updated' },
+    { value: 'newest', label: 'Newest first' },
+    { value: 'oldest', label: 'Oldest first' },
+  ], []);
+  const activeFilterOptions = openFilter === 'status'
+    ? statusOptions
+    : openFilter === 'priority'
+      ? priorityOptions
+      : openFilter === 'category'
+        ? categoryOptions
+        : sortOptions;
+  const activeFilterLabel = openFilter === 'status'
+    ? 'Status'
+    : openFilter === 'priority'
+      ? 'Priority'
+      : openFilter === 'category'
+        ? 'Category'
+        : 'Sort order';
+  const hasFilters = Boolean(query || filter !== 'all' || categoryFilter !== 'all' || priorityFilter !== 'all' || sort !== 'updated');
+
+  function chooseFilter(value: string) {
+    if (openFilter === 'status') setFilter(value);
+    if (openFilter === 'priority') setPriorityFilter(value);
+    if (openFilter === 'category') setCategoryFilter(value);
+    if (openFilter === 'sort') setSort(value as 'updated' | 'newest' | 'oldest');
+    setOpenFilter(null);
+  }
 
   return (
     <ScrollView
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.subScroll}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
-        {filters.map(item => {
-          const active = filter === item;
-          return (
-            <Pressable key={item} onPress={() => setFilter(item)} style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.filterChipActive]}>
-              <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.filterTextActive]}>
-                {item === 'all' ? 'All' : STATUS_LABEL[item] ?? item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <BentoGrid style={styles.managementMetrics}>
+        <BentoPanel size="compact" style={styles.managementMetricPanel}>
+          <MetricCard label="Authorized tickets" value={tickets.length} tone="blue" icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }} />
+        </BentoPanel>
+        <BentoPanel size="compact" style={styles.managementMetricPanel}>
+          <MetricCard label="Needs action" value={tickets.filter(ticket => ticket.status === 'action_required').length} tone="warning" icon={{ ios: 'exclamationmark.triangle', android: 'priority_high', web: 'priority_high' }} />
+        </BentoPanel>
+        <BentoPanel size="compact" style={styles.managementMetricPanel}>
+          <MetricCard label="Resolved" value={tickets.filter(ticket => ticket.status === 'resolved').length} tone="success" icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }} />
+        </BentoPanel>
+      </BentoGrid>
+
+      {loadError ? <View style={styles.errorBox}><Text style={styles.errorText}>{loadError}</Text></View> : null}
+      {actionError ? <View style={styles.errorBox}><Text style={styles.errorText}>{actionError}</Text></View> : null}
+
+      <SurfaceCard style={styles.workspaceFilterCard}>
+        <View style={styles.searchFieldShell}>
+          <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={colors.textSecondary} size={18} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search reference, student, category, or description"
+            placeholderTextColor={colors.textTertiary}
+            accessibilityLabel="Search ticket queue"
+            style={[styles.searchInput, { color: colors.text }]}
+          />
+        </View>
+        <View style={styles.queueFilterToolbar}>
+          <QueueFilterSelect label="Status" value={filter} options={statusOptions} expanded={openFilter === 'status'} onPress={() => setOpenFilter(value => value === 'status' ? null : 'status')} />
+          <QueueFilterSelect label="Priority" value={priorityFilter} options={priorityOptions} expanded={openFilter === 'priority'} onPress={() => setOpenFilter(value => value === 'priority' ? null : 'priority')} />
+          <QueueFilterSelect label="Category" value={categoryFilter} options={categoryOptions} expanded={openFilter === 'category'} onPress={() => setOpenFilter(value => value === 'category' ? null : 'category')} />
+          <QueueFilterSelect label="Sort" value={sort} options={sortOptions} expanded={openFilter === 'sort'} onPress={() => setOpenFilter(value => value === 'sort' ? null : 'sort')} />
+          <Pressable
+            onPress={clearFilters}
+            disabled={!hasFilters}
+            accessibilityRole="button"
+            accessibilityLabel="Reset ticket filters"
+            style={({ pressed }) => [styles.queueResetButton, { borderColor: colors.border, backgroundColor: colors.backgroundElement }, !hasFilters && styles.queueResetButtonDisabled, pressed && styles.pressed]}>
+            <AcademicIcon name={{ ios: 'arrow.counterclockwise', android: 'restart_alt', web: 'restart_alt' }} color={colors.primary} size={16} animated={false} />
+            <Text style={[styles.queueResetText, { color: colors.primary }]}>Reset</Text>
+          </Pressable>
+        </View>
+        {openFilter ? (
+          <View style={[styles.queueFilterMenu, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+            <Text style={[styles.queueFilterMenuLabel, { color: colors.textSecondary }]}>Choose {activeFilterLabel.toLowerCase()}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.queueFilterOptions}>
+              {activeFilterOptions.map(option => {
+                const selected = (openFilter === 'status' && filter === option.value)
+                  || (openFilter === 'priority' && priorityFilter === option.value)
+                  || (openFilter === 'category' && categoryFilter === option.value)
+                  || (openFilter === 'sort' && sort === option.value);
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    onPress={() => chooseFilter(option.value)}
+                    style={({ pressed }) => [styles.queueFilterOption, { backgroundColor: selected ? colors.primary : colors.muted }, pressed && styles.pressed]}>
+                    <Text style={[styles.queueFilterOptionText, { color: selected ? '#FFFFFF' : colors.textSecondary }]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
+      </SurfaceCard>
+      <Text style={[styles.resultCount, { color: colors.textSecondary }]}>{visibleTickets.length} matching ticket{visibleTickets.length === 1 ? '' : 's'}</Text>
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
-      ) : tickets.length === 0 ? (
+      ) : visibleTickets.length === 0 ? (
         <EmptyState
-          title="No tickets found"
-          message="Requests matching this filter will appear here."
+          title="No tickets match these filters"
+          message="Clear a filter or try a different search to see the authorized queue."
           icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }}
         />
       ) : (
-        tickets.map(ticket => {
+        visibleTickets.map(ticket => {
           const next = NEXT_STATUS[ticket.status];
           const student = ticket.student_id;
           return (
-            <ManagementCard key={ticket.id} accent={ticket.status === 'action_required' ? 'error' : 'blue'}>
+            <Pressable
+              key={ticket.id}
+              onPress={() => router.push(`/ticket/${ticket.id}` as never)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ticket ${shortRef(ticket.id)}`}
+              style={({ pressed }) => [styles.ticketPressable, pressed && styles.pressed]}>
+              <ManagementCard>
               <View style={styles.cardTop}>
                 <View style={styles.cardTitleGroup}>
                   <Text style={[styles.refText, { color: colors.primary }]}>{shortRef(ticket.id)}</Text>
@@ -238,11 +438,14 @@ function AllTickets() {
               </View>
               <Text style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>{ticket.description}</Text>
               <View style={styles.footerRow}>
-                <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>{formatDate(ticket.created_at)}</Text>
+                <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>Filed {formatDate(ticket.created_at)} · Updated {formatDate(ticket.updated_at)}</Text>
                 {next ? (
                   <Pressable
                     style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
-                    onPress={() => advance(ticket)}
+                    onPress={event => {
+                      event.stopPropagation();
+                      void advance(ticket);
+                    }}
                     disabled={updating === ticket.id}>
                     {updating === ticket.id ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
@@ -252,7 +455,8 @@ function AllTickets() {
                   </Pressable>
                 ) : null}
               </View>
-            </ManagementCard>
+              </ManagementCard>
+            </Pressable>
           );
         })
       )}
@@ -273,6 +477,8 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [listSearch, setListSearch] = useState('');
+  const [listAudience, setListAudience] = useState('all');
 
   const fetchAnnouncements = useCallback(async () => {
     const { data, error: fetchError } = await supabase
@@ -293,6 +499,15 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
       setLoadingAnnouncements(false);
     })();
   }, [fetchAnnouncements]);
+
+  const visibleAnnouncements = useMemo(() => {
+    const query = listSearch.trim().toLowerCase();
+    return announcements.filter(item => {
+      const matchesSearch = !query || `${item.title} ${item.body} ${item.audience_roles.join(' ')}`.toLowerCase().includes(query);
+      const matchesAudience = listAudience === 'all' || item.audience_roles.includes(listAudience);
+      return matchesSearch && matchesAudience;
+    });
+  }, [announcements, listAudience, listSearch]);
 
   async function onRefresh() {
     setRefreshing(true);
@@ -396,17 +611,42 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
         {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Post Announcement</Text>}
       </Pressable>
 
-      <SectionHeader title={`Published Announcements (${announcements.length})`} />
+      <SectionHeader title={`Published Announcements (${visibleAnnouncements.length})`} />
+      <TextInput
+        style={[styles.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
+        placeholder="Search title, content, or audience"
+        placeholderTextColor={colors.textSecondary}
+        value={listSearch}
+        onChangeText={setListSearch}
+        accessibilityLabel="Search published announcements"
+      />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+        {['all', 'student', 'faculty', 'staff', 'super_admin'].map(item => {
+          const active = listAudience === item;
+          return (
+            <Pressable
+              key={item}
+              onPress={() => setListAudience(item)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.filterChipActive]}>
+              <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.filterTextActive]}>
+                {item === 'all' ? 'All audiences' : item === 'super_admin' ? 'Super admins' : `${item.charAt(0).toUpperCase()}${item.slice(1)}s`}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
       {loadingAnnouncements ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
-      ) : announcements.length === 0 ? (
+      ) : visibleAnnouncements.length === 0 ? (
         <EmptyState
-          title="No announcements yet"
-          message="Announcements created by CAS staff will appear here."
+          title={announcements.length === 0 ? 'No announcements yet' : 'No matching announcements'}
+          message={announcements.length === 0 ? 'Announcements created by CAS staff will appear here.' : 'Try another search term or audience filter.'}
           icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
         />
       ) : (
-        announcements.map(item => {
+        visibleAnnouncements.map(item => {
           const expanded = expandedId === item.id;
           const publishedAt = item.publish_at ?? item.created_at;
           return (
@@ -415,7 +655,7 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
               accessibilityRole="button"
               accessibilityState={{ expanded }}
               onPress={() => setExpandedId(current => current === item.id ? null : item.id)}>
-              <ManagementCard accent={item.pinned ? 'warning' : 'blue'}>
+              <ManagementCard>
                 <View style={styles.cardTop}>
                   <View style={styles.cardTitleGroup}>
                     <Text style={[styles.itemTitle, { color: colors.navy }]} numberOfLines={expanded ? undefined : 1}>{item.title}</Text>
@@ -447,13 +687,22 @@ function DocRequests() {
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fetchDocs = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('document_requests')
       .select('id, document_type, purpose, copies, status, remarks, requested_at, student_id(display_name, email)')
       .eq('state', 'active')
       .order('requested_at', { ascending: false });
+    if (fetchError) {
+      setError('Document requests could not be loaded. Pull down to retry.');
+      return;
+    }
+    setError(null);
     setDocs((data as unknown as DocRow[]) ?? []);
   }, []);
 
@@ -461,26 +710,49 @@ function DocRequests() {
   async function onRefresh() { setRefreshing(true); await fetchDocs(); setRefreshing(false); }
   useEffect(() => { void load(); }, [load]);
 
+  const visibleDocs = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return docs.filter(doc => {
+      const student = doc.student_id;
+      const matchesSearch = !query || `${DOC_LABEL[doc.document_type] ?? doc.document_type} ${doc.purpose} ${student?.display_name ?? ''} ${student?.email ?? ''}`.toLowerCase().includes(query);
+      return matchesSearch && (statusFilter === 'all' || doc.status === statusFilter);
+    });
+  }, [docs, search, statusFilter]);
+
   async function advance(doc: DocRow) {
     const next = DOC_NEXT[doc.status];
     if (!next) return;
+    setError(null);
+    setNotice(null);
     setUpdating(doc.id);
-    await supabase
+    const { error: updateError } = await supabase
       .from('document_requests')
       .update({ status: next, remarks: remarks[doc.id] ?? doc.remarks ?? null })
       .eq('id', doc.id);
     setUpdating(null);
-    await fetchDocs();
+    if (updateError) {
+      setError('The document request could not be updated. Please try again.');
+    } else {
+      setNotice(`Request moved to ${DOC_STATUS_LABEL[next]}.`);
+      await fetchDocs();
+    }
   }
 
   async function reject(doc: DocRow) {
+    setError(null);
+    setNotice(null);
     setUpdating(`${doc.id}-reject`);
-    await supabase
+    const { error: updateError } = await supabase
       .from('document_requests')
       .update({ status: 'rejected', remarks: remarks[doc.id] ?? null })
       .eq('id', doc.id);
     setUpdating(null);
-    await fetchDocs();
+    if (updateError) {
+      setError('The document request could not be rejected. Please try again.');
+    } else {
+      setNotice('Request rejected and the student note was saved.');
+      await fetchDocs();
+    }
   }
 
   return (
@@ -488,21 +760,48 @@ function DocRequests() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.subScroll}>
+      {error ? <View style={[styles.errorBox, { backgroundColor: colors.errorBg }]}><Text style={[styles.errorText, { color: colors.error }]}>{error}</Text></View> : null}
+      {notice ? <View style={[styles.successBox, { backgroundColor: colors.successBg }]}><Text style={[styles.successText, { color: colors.success }]}>{notice}</Text></View> : null}
+      <TextInput
+        style={[styles.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
+        placeholder="Search student, document, or purpose"
+        placeholderTextColor={colors.textSecondary}
+        value={search}
+        onChangeText={setSearch}
+        accessibilityLabel="Search document requests"
+      />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+        {['all', ...Object.keys(DOC_STATUS_LABEL)].map(status => {
+          const active = statusFilter === status;
+          return (
+            <Pressable
+              key={status}
+              onPress={() => setStatusFilter(status)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.filterChipActive]}>
+              <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.filterTextActive]}>
+                {status === 'all' ? 'All requests' : DOC_STATUS_LABEL[status]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
-      ) : docs.length === 0 ? (
+      ) : visibleDocs.length === 0 ? (
         <EmptyState
-          title="No document requests"
-          message="Student document requests will appear here."
+          title={docs.length === 0 ? 'No document requests' : 'No matching requests'}
+          message={docs.length === 0 ? 'Student document requests will appear here.' : 'Try another search term or status filter.'}
           icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
         />
       ) : (
-        docs.map(doc => {
+        visibleDocs.map(doc => {
           const next = DOC_NEXT[doc.status];
           const isUpdating = updating === doc.id || updating === `${doc.id}-reject`;
           const student = doc.student_id;
           return (
-            <ManagementCard key={doc.id} accent={doc.status === 'rejected' ? 'error' : 'blue'}>
+            <ManagementCard key={doc.id}>
               <View style={styles.cardTop}>
                 <View style={styles.cardTitleGroup}>
                   <Text style={[styles.itemTitle, { color: colors.navy }]}>{DOC_LABEL[doc.document_type] ?? formatCategory(doc.document_type)}</Text>
@@ -551,18 +850,119 @@ function DocRequests() {
   );
 }
 
+function AuditLog() {
+  const colors = useTheme();
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [actionFilter, setActionFilter] = useState('all');
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAudit = useCallback(async () => {
+    const { data, error: fetchError } = await supabase
+      .from('ticket_audit_logs')
+      .select('id, ticket_id, actor_id, action, old_data, new_data, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    setError(fetchError ? 'The protected audit history could not be loaded. Pull down to retry.' : null);
+    setRows((data as unknown as AuditRow[]) ?? []);
+  }, []);
+
+  const load = useCallback(async () => { setLoading(true); await fetchAudit(); setLoading(false); }, [fetchAudit]);
+  async function onRefresh() { setRefreshing(true); await fetchAudit(); setRefreshing(false); }
+  useEffect(() => { void load(); }, [load]);
+
+  const actions = useMemo(() => Array.from(new Set(rows.map(row => row.action))).sort(), [rows]);
+  const visibleRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return rows.filter(row => {
+      const statusChange = `${row.old_data?.status ?? ''} ${row.new_data?.status ?? ''}`;
+      return (actionFilter === 'all' || row.action === actionFilter)
+        && (!normalizedQuery || `${shortRef(row.ticket_id)} ${row.action} ${row.actor_id ?? ''} ${statusChange}`.toLowerCase().includes(normalizedQuery));
+    });
+  }, [actionFilter, query, rows]);
+
+  return (
+    <ScrollView
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.subScroll}>
+      <SurfaceCard style={styles.auditIntro}>
+        <View style={[styles.auditIntroIcon, { backgroundColor: colors.softBlue }]}>
+          <AcademicIcon name={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} color={colors.primary} size={21} />
+        </View>
+        <View style={styles.auditIntroCopy}>
+          <Text style={[styles.itemTitle, { color: colors.navy }]}>Protected ticket history</Text>
+          <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>Read-only events emitted by the existing advising-ticket audit trigger. Only super administrators can access this view.</Text>
+        </View>
+      </SurfaceCard>
+      {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+      <View style={styles.workspaceFilterCard}>
+        <View style={[styles.searchFieldShell, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={colors.textSecondary} size={18} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search ticket reference, action, or actor"
+            placeholderTextColor={colors.textTertiary}
+            style={[styles.searchInput, { color: colors.text }]}
+            accessibilityLabel="Search protected audit history"
+          />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+          {['all', ...actions].map(action => {
+            const active = actionFilter === action;
+            return (
+              <Pressable key={action} onPress={() => setActionFilter(action)} style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }]}>
+                <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }]}>{action === 'all' ? 'All events' : formatCategory(action)}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+      <Text style={[styles.resultCount, { color: colors.textSecondary }]}>{visibleRows.length} audit event{visibleRows.length === 1 ? '' : 's'} shown</Text>
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loader} />
+      ) : visibleRows.length === 0 ? (
+        <EmptyState title="No audit events match" message="Ticket status and lifecycle events will appear here when recorded." icon={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} />
+      ) : visibleRows.map(row => {
+        const oldStatus = row.old_data?.status;
+        const newStatus = row.new_data?.status;
+        return (
+          <ManagementCard key={row.id}>
+            <View style={styles.auditEvent}>
+              <View style={styles.auditEventMain}>
+                <Text style={[styles.refText, { color: colors.primary }]}>{shortRef(row.ticket_id)}</Text>
+                <Text style={[styles.itemTitle, { color: colors.navy }]}>{formatCategory(row.action)}</Text>
+                <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>{formatDate(row.created_at)} · {row.actor_id ? `Actor ${shortRef(row.actor_id, 'A')}` : 'System actor'}</Text>
+              </View>
+              <StatusBadge label={newStatus ? `${oldStatus ?? 'new'} → ${newStatus}` : 'Recorded'} tone={newStatus === 'resolved' ? 'success' : 'blue'} />
+            </View>
+          </ManagementCard>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 function UserList() {
   const colors = useTheme();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [roleFilter, setRoleFilter] = useState<(typeof USER_ROLE_OPTIONS)[number]>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'archived_read_only'>('all');
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<'newest' | 'oldest' | 'name'>('newest');
+  const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('users_account_registry')
       .select('id, display_name, email, student_number, role, state, created_at')
       .order('created_at', { ascending: false });
+    setError(fetchError ? 'The account directory could not be loaded. Pull down to retry.' : null);
     setUsers(data ?? []);
   }, []);
 
@@ -571,14 +971,53 @@ function UserList() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const visibleUsers = roleFilter === 'all' ? users : users.filter(user => user.role === roleFilter);
+  const visibleUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return users
+      .filter(user => {
+        const searchable = `${user.display_name} ${user.email} ${user.student_number ?? ''}`.toLowerCase();
+        return (roleFilter === 'all' || user.role === roleFilter)
+          && (statusFilter === 'all' || (statusFilter === 'active' ? user.state === 'active' : user.state === 'archived_read_only'))
+          && (!normalizedQuery || searchable.includes(normalizedQuery));
+      })
+      .sort((left, right) => {
+        if (sort === 'name') return left.display_name.localeCompare(right.display_name);
+        const direction = sort === 'newest' ? -1 : 1;
+        return direction * (new Date(left.created_at).getTime() - new Date(right.created_at).getTime());
+      });
+  }, [query, roleFilter, sort, statusFilter, users]);
+
+  function clearFilters() {
+    setQuery('');
+    setRoleFilter('all');
+    setStatusFilter('all');
+    setSort('newest');
+  }
 
   return (
     <ScrollView
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.subScroll}>
-      <SectionHeader title={`Filter by role (${visibleUsers.length})`} />
+      <BentoGrid style={styles.managementMetrics}>
+        <BentoPanel size="compact" style={styles.managementMetricPanel}><MetricCard label="All accounts" value={users.length} tone="blue" icon={{ ios: 'person.2', android: 'groups', web: 'groups' }} /></BentoPanel>
+        <BentoPanel size="compact" style={styles.managementMetricPanel}><MetricCard label="Active" value={users.filter(user => user.state === 'active').length} tone="success" icon={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} /></BentoPanel>
+        <BentoPanel size="compact" style={styles.managementMetricPanel}><MetricCard label="Read-only" value={users.filter(user => user.state === 'archived_read_only').length} tone="warning" icon={{ ios: 'lock', android: 'lock', web: 'lock' }} /></BentoPanel>
+      </BentoGrid>
+      {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+      <SectionHeader title={`${visibleUsers.length} matching account${visibleUsers.length === 1 ? '' : 's'}`} />
+      <View style={styles.workspaceFilterCard}>
+        <View style={[styles.searchFieldShell, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={colors.textSecondary} size={18} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search name, email, or student number"
+            placeholderTextColor={colors.textTertiary}
+            style={[styles.searchInput, { color: colors.text }]}
+            accessibilityLabel="Search account directory"
+          />
+        </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
         {USER_ROLE_OPTIONS.map(role => {
           const active = roleFilter === role;
@@ -595,12 +1034,37 @@ function UserList() {
           );
         })}
       </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+          {(['all', 'active', 'archived_read_only'] as const).map(status => {
+            const active = statusFilter === status;
+            return (
+              <Pressable key={status} onPress={() => setStatusFilter(status)} style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }]}>
+                <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }]}>{status === 'all' ? 'All states' : status === 'active' ? 'Active' : 'Read-only'}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <View style={styles.workspaceFilterFooter}>
+          <View style={styles.workspaceFilterRow}>
+            <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Sort</Text>
+            {(['newest', 'oldest', 'name'] as const).map(value => {
+              const active = sort === value;
+              return (
+                <Pressable key={value} onPress={() => setSort(value)} style={[styles.sortButton, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.softBlue : 'transparent' }]}>
+                  <Text style={[styles.sortText, { color: active ? colors.primary : colors.textSecondary }]}>{value === 'name' ? 'Name' : value === 'newest' ? 'Newest' : 'Oldest'}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {(query || roleFilter !== 'all' || statusFilter !== 'all' || sort !== 'newest') ? <Pressable onPress={clearFilters} style={styles.clearButton}><Text style={[styles.clearButtonText, { color: colors.primary }]}>Clear filters</Text></Pressable> : null}
+        </View>
+      </View>
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : visibleUsers.length === 0 ? (
         <EmptyState
           title="No matching users"
-          message="No registered accounts match the selected role."
+          message="No authorized accounts match the current search and filters."
           icon={{ ios: 'person.2', android: 'groups', web: 'groups' }}
         />
       ) : (
@@ -639,10 +1103,10 @@ export default function AdminScreen() {
 
   useEffect(() => {
     const requestedTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
-    if (requestedTab === 'tickets' || requestedTab === 'announce' || requestedTab === 'documents' || requestedTab === 'users') {
+    if (requestedTab === 'tickets' || requestedTab === 'announce' || requestedTab === 'documents' || requestedTab === 'users' || (requestedTab === 'audit' && profile?.role === 'super_admin')) {
       setActiveTab(requestedTab);
     }
-  }, [params.tab]);
+  }, [params.tab, profile?.role]);
 
   if (!isAdmin) {
     return (
@@ -666,6 +1130,7 @@ export default function AdminScreen() {
     { id: 'announce', label: 'Announcements' },
     { id: 'documents', label: 'Docs' },
     { id: 'users', label: 'Users' },
+    ...(profile?.role === 'super_admin' ? [{ id: 'audit' as const, label: 'Audit' }] : []),
   ];
 
   return (
@@ -696,6 +1161,7 @@ export default function AdminScreen() {
       {activeTab === 'announce' ? <PostAnnouncement adminId={profile!.id} /> : null}
       {activeTab === 'documents' ? <DocRequests /> : null}
       {activeTab === 'users' ? <UserList /> : null}
+      {activeTab === 'audit' && profile?.role === 'super_admin' ? <AuditLog /> : null}
     </SafeAreaView>
   );
 }
@@ -714,7 +1180,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.five,
     paddingBottom: Spacing.two,
   },
-  screenTitle: { color: Academic.navy, fontSize: 26, fontWeight: '700', letterSpacing: -0.45 },
+  screenTitle: { color: Academic.navy, fontSize: 26, fontWeight: '600', letterSpacing: -0.45 },
   screenSub: { color: Academic.textSecondary, fontSize: 13, marginTop: 3 },
   innerTabBar: {
     width: '100%',
@@ -739,7 +1205,7 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.card,
     boxShadow: '0 8px 24px rgba(50, 82, 87, 0.10)',
   },
-  innerTabText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '700' },
+  innerTabText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '500' },
   innerTabTextActive: { color: Academic.navy },
   subScroll: {
     width: '100%',
@@ -750,9 +1216,51 @@ const styles = StyleSheet.create({
     paddingBottom: 128,
     gap: Spacing.three,
   },
+  managementMetrics: { alignItems: 'stretch' },
+  managementMetricPanel: { minWidth: 0 },
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   loader: { marginTop: Spacing.four },
   filterRail: { gap: Spacing.two, paddingRight: Spacing.three },
+  workspaceFilterCard: { gap: Spacing.two, padding: Spacing.three },
+  searchFieldShell: {
+    minHeight: 46,
+    borderRadius: 13,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderColor: Academic.border,
+    backgroundColor: Academic.muted,
+  },
+  searchInput: { flex: 1, minWidth: 0, fontSize: 14, paddingVertical: 9 },
+  queueFilterToolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: Spacing.two },
+  queueFilterSelect: { minWidth: 132, flexGrow: 1, gap: 4 },
+  queueFilterLabel: { fontSize: 11, fontWeight: '500', paddingHorizontal: 2 },
+  queueFilterControl: { minHeight: 38, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  queueFilterControlText: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: '500' },
+  queueResetButton: { minHeight: 38, borderRadius: 10, borderWidth: 1, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  queueResetButtonDisabled: { opacity: 0.42 },
+  queueResetText: { fontSize: 12, fontWeight: '500' },
+  queueFilterMenu: { borderWidth: 1, borderRadius: 12, padding: Spacing.two, gap: 7 },
+  queueFilterMenuLabel: { fontSize: 11, fontWeight: '500', paddingHorizontal: 2 },
+  queueFilterOptions: { gap: 7 },
+  queueFilterOption: { minHeight: 32, paddingHorizontal: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  queueFilterOptionText: { fontSize: 11, fontWeight: '500' },
+  workspaceFilterRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  workspaceFilterFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, flexWrap: 'wrap' },
+  filterLabel: { fontSize: 12, fontWeight: '500', marginRight: 2 },
+  sortButton: { minHeight: 31, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1, justifyContent: 'center' },
+  sortText: { fontSize: 11, fontWeight: '500' },
+  clearButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 4 },
+  clearButtonText: { fontSize: 12, fontWeight: '500' },
+  resultCount: { fontSize: 12, fontWeight: '400' },
+  ticketPressable: { width: '100%', borderRadius: 16 },
+  auditIntro: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  auditIntroIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  auditIntroCopy: { flex: 1, gap: 4 },
+  auditEvent: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.two },
+  auditEventMain: { flex: 1, minWidth: 220, gap: 4 },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 9,
@@ -760,18 +1268,18 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.muted,
   },
   filterChipActive: { backgroundColor: Academic.primary },
-  filterText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '900' },
+  filterText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '500' },
   filterTextActive: { color: '#FFFFFF' },
   managementCard: { gap: 10 },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.two },
   cardTitleGroup: { flex: 1, gap: 3 },
-  refText: { color: Academic.primary, fontSize: 13, fontWeight: '900' },
-  itemTitle: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  refText: { color: Academic.primary, fontSize: 13, fontWeight: '600' },
+  itemTitle: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   itemMeta: { color: Academic.textSecondary, fontSize: 12, lineHeight: 17 },
   itemBody: { color: Academic.textSecondary, fontSize: 13, lineHeight: 19 },
   announcementDetails: { gap: 3, paddingTop: 2 },
-  detailLabel: { color: Academic.navy, fontSize: 12, fontWeight: '900' },
-  expandLink: { color: Academic.primary, fontSize: 12, fontWeight: '900', textAlign: 'right' },
+  detailLabel: { color: Academic.navy, fontSize: 12, fontWeight: '500' },
+  expandLink: { color: Academic.primary, fontSize: 12, fontWeight: '500', textAlign: 'right' },
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   smallButton: {
     minHeight: 34,
@@ -781,7 +1289,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.primary,
   },
-  smallButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  smallButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   rejectButton: {
     minHeight: 34,
     paddingHorizontal: 12,
@@ -790,7 +1298,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.errorBg,
   },
-  rejectButtonText: { color: Academic.error, fontSize: 12, fontWeight: '900' },
+  rejectButtonText: { color: Academic.error, fontSize: 12, fontWeight: '500' },
   input: {
     height: 50,
     borderRadius: 14,
@@ -830,7 +1338,7 @@ const styles = StyleSheet.create({
     borderColor: Academic.border,
   },
   choiceChipActive: { backgroundColor: Academic.primary, borderColor: Academic.primary },
-  choiceText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '900' },
+  choiceText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '500' },
   choiceTextActive: { color: '#FFFFFF' },
   pinToggle: {
     minHeight: 52,
@@ -844,7 +1352,7 @@ const styles = StyleSheet.create({
     borderColor: Academic.border,
   },
   pinLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pinText: { color: Academic.navy, fontSize: 14, fontWeight: '800' },
+  pinText: { color: Academic.navy, fontSize: 14, fontWeight: '500' },
   primaryButton: {
     height: 52,
     borderRadius: 16,
@@ -852,7 +1360,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.primary,
   },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   userAvatar: {
@@ -863,13 +1371,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.softBlue,
   },
-  userInitial: { color: Academic.primary, fontSize: 18, fontWeight: '900' },
+  userInitial: { color: Academic.primary, fontSize: 18, fontWeight: '600' },
   userInfo: { flex: 1, gap: 2 },
   userBadges: { alignItems: 'flex-end', gap: 4 },
   errorBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.errorBg },
-  errorText: { color: Academic.error, fontSize: 13, fontWeight: '800' },
+  errorText: { color: Academic.error, fontSize: 13, fontWeight: '500' },
   successBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.successBg },
-  successText: { color: Academic.success, fontSize: 13, fontWeight: '800' },
+  successText: { color: Academic.success, fontSize: 13, fontWeight: '500' },
   accessDenied: {
     flex: 1,
     alignItems: 'center',
@@ -877,6 +1385,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.five,
     gap: Spacing.three,
   },
-  accessTitle: { color: Academic.navy, fontSize: 22, fontWeight: '900' },
+  accessTitle: { color: Academic.navy, fontSize: 22, fontWeight: '600' },
   accessBody: { color: Academic.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
 });

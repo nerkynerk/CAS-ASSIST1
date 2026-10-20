@@ -24,11 +24,12 @@ import {
   formatCategory,
   shortRef,
 } from '@/components/ui/academic-ui';
-import { DashboardActionCard, dashboardActionGridStyles } from '@/components/dashboard/dashboard-primitives';
+import { BentoGrid, BentoPanel, DashboardActionCard, dashboardActionGridStyles } from '@/components/dashboard/dashboard-primitives';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
+import { apiGet } from '@/lib/api';
 
 interface TicketRow {
   id: string;
@@ -37,6 +38,16 @@ interface TicketRow {
   status: string;
   created_at: string;
   student_id: { display_name: string; email: string } | null;
+}
+
+interface QueueAnalytics {
+  activeLoad: number;
+  arrivalsPerHour: number;
+  resolvedCount: number;
+  mostLikelyMinutes: number | null;
+  expectedTriangularMinutes: number | null;
+  estimateSource: string;
+  calculatedAt: string;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -62,12 +73,16 @@ export default function StaffDashboard() {
   const { profile } = useAuth();
   const theme = useTheme();
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [documentCounts, setDocumentCounts] = useState<Record<string, number>>({});
   const [urgent, setUrgent] = useState<TicketRow[]>([]);
+  const [queueAnalytics, setQueueAnalytics] = useState<QueueAnalytics | null>(null);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
-    const [allTickets, urgentTickets] = await Promise.all([
+    const [allTickets, urgentTickets, documents] = await Promise.all([
       supabase
         .from('advising_ticket_pipeline')
         .select('status')
@@ -79,6 +94,10 @@ export default function StaffDashboard() {
         .eq('state', 'active')
         .order('created_at', { ascending: true })
         .limit(5),
+      supabase
+        .from('document_requests')
+        .select('status')
+        .eq('state', 'active'),
     ]);
 
     const c: Record<string, number> = {};
@@ -87,24 +106,45 @@ export default function StaffDashboard() {
     }
     setCounts(c);
     setUrgent((urgentTickets.data as unknown as TicketRow[]) ?? []);
+    setLoadError(allTickets.error || urgentTickets.error || documents.error
+      ? 'Some operational records could not be loaded. Pull down to retry.'
+      : null);
+    const documentStatusCounts: Record<string, number> = {};
+    for (const document of (documents.data ?? [])) {
+      documentStatusCounts[document.status] = (documentStatusCounts[document.status] ?? 0) + 1;
+    }
+    setDocumentCounts(documentStatusCounts);
+  }, []);
+
+  const fetchQueueAnalytics = useCallback(async () => {
+    try {
+      const data = await apiGet<QueueAnalytics>('/api/queue/analytics?windowHours=168');
+      setQueueAnalytics(data);
+      setQueueError(null);
+    } catch {
+      setQueueAnalytics(null);
+      setQueueError('Queue analytics are unavailable. The optional operations API may not be configured.');
+    }
   }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
-    await fetchData();
+    await Promise.all([fetchData(), fetchQueueAnalytics()]);
     setLoading(false);
-  }, [fetchData]);
+  }, [fetchData, fetchQueueAnalytics]);
 
   async function onRefresh() {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([fetchData(), fetchQueueAnalytics()]);
     setRefreshing(false);
   }
 
   useEffect(() => { void load(); }, [load]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
-  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const total = ['submitted', 'under_evaluation', 'action_required'].reduce((sum, status) => sum + (counts[status] ?? 0), 0);
+  const documentsInProgress = ['submitted', 'under_evaluation', 'action_required', 'processing']
+    .reduce((sum, status) => sum + (documentCounts[status] ?? 0), 0);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -118,6 +158,8 @@ export default function StaffDashboard() {
           title={`Hello, ${firstName}`}
           subtitle="Monitor daily CAS support operations."
         />
+
+        {loadError ? <View style={[styles.errorBox, { backgroundColor: theme.errorBg }]}><Text style={[styles.errorText, { color: theme.error }]}>{loadError}</Text></View> : null}
 
         {loading ? (
           <ActivityIndicator color={Academic.primary} style={styles.loader} />
@@ -147,6 +189,12 @@ export default function StaffDashboard() {
                 value={counts.resolved ?? 0}
                 icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
                 tone="success"
+              />
+              <MetricCard
+                label="Documents processing"
+                value={documentsInProgress}
+                icon={{ ios: 'doc.text', android: 'description', web: 'description' }}
+                tone="blue"
               />
             </View>
           </>
@@ -180,6 +228,58 @@ export default function StaffDashboard() {
             onPress={() => router.navigate('/explore')}
           />
         </View>
+
+        <BentoGrid style={styles.operationsGrid}>
+          <BentoPanel size="medium" style={styles.operationsPanel}>
+            <SectionHeader
+              title="Queue monitor"
+              action="Open ticket queue"
+              onAction={() => router.navigate({ pathname: '/admin', params: { tab: 'tickets' } })}
+            />
+            {queueError ? (
+              <EmptyState
+                title="Queue analytics unavailable"
+                message={queueError}
+                icon={{ ios: 'chart.bar.xaxis', android: 'analytics', web: 'analytics' }}
+              />
+            ) : queueAnalytics ? (
+              <>
+                <View style={styles.queueStatGrid}>
+                  <View style={[styles.queueStat, { backgroundColor: theme.softBlue }]}>
+                    <Text style={[styles.queueStatValue, { color: theme.navy }]}>{queueAnalytics.activeLoad}</Text>
+                    <Text style={[styles.queueStatLabel, { color: theme.textSecondary }]}>Active load</Text>
+                  </View>
+                  <View style={[styles.queueStat, { backgroundColor: theme.warningBg }]}>
+                    <Text style={[styles.queueStatValue, { color: theme.navy }]}>{queueAnalytics.arrivalsPerHour.toFixed(2)}</Text>
+                    <Text style={[styles.queueStatLabel, { color: theme.textSecondary }]}>Arrivals / hour</Text>
+                  </View>
+                  <View style={[styles.queueStat, { backgroundColor: theme.successBg }]}>
+                    <Text style={[styles.queueStatValue, { color: theme.navy }]}>{queueAnalytics.resolvedCount}</Text>
+                    <Text style={[styles.queueStatLabel, { color: theme.textSecondary }]}>Resolved in window</Text>
+                  </View>
+                </View>
+                <Text style={[styles.queueMethod, { color: theme.textSecondary }]}>Estimated service time: {queueAnalytics.expectedTriangularMinutes ?? queueAnalytics.mostLikelyMinutes ?? '—'} min · {queueAnalytics.estimateSource.replace('_', ' ')}</Text>
+              </>
+            ) : (
+              <ActivityIndicator color={theme.primary} style={styles.loader} />
+            )}
+          </BentoPanel>
+          <BentoPanel size="medium" style={styles.operationsPanel}>
+            <SectionHeader title="Document pipeline" action="Open document queue" onAction={() => router.navigate({ pathname: '/admin', params: { tab: 'documents' } })} />
+            {Object.keys(documentCounts).length === 0 ? (
+              <EmptyState title="No document activity" message="Authorized document requests will appear here." icon={{ ios: 'doc.text', android: 'description', web: 'description' }} />
+            ) : (
+              <View style={styles.documentPipeline}>
+                {['submitted', 'under_evaluation', 'processing', 'ready_for_pickup', 'completed'].map(status => (
+                  <View key={status} style={[styles.documentPipelineRow, { borderBottomColor: theme.border }]}>
+                    <Text style={[styles.documentPipelineLabel, { color: theme.textSecondary }]}>{status.replace(/_/g, ' ')}</Text>
+                    <Text style={[styles.documentPipelineValue, { color: theme.navy }]}>{documentCounts[status] ?? 0}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </BentoPanel>
+        </BentoGrid>
 
         <SectionHeader title="Needs Attention" />
         {urgent.length === 0 ? (
@@ -225,6 +325,16 @@ export default function StaffDashboard() {
             );
           })
         )}
+
+        <SectionHeader title="Ticket status overview" action="Open operations" onAction={() => router.navigate('/admin')} />
+        <SurfaceCard style={styles.statusOverview}>
+          {['submitted', 'under_evaluation', 'action_required', 'resolved'].map(status => (
+            <View key={status} style={[styles.statusSummary, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+              <StatusBadge label={STATUS_LABEL[status]} tone={STATUS_TONE[status] ?? 'muted'} />
+              <Text style={[styles.statusSummaryValue, { color: theme.navy }]}>{counts[status] ?? 0}</Text>
+            </View>
+          ))}
+        </SurfaceCard>
       </ScrollView>
     </SafeAreaView>
   );
@@ -243,6 +353,19 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   loader: { marginTop: Spacing.four },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
+  operationsGrid: { gap: Spacing.three },
+  operationsPanel: { gap: Spacing.two },
+  queueStatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  queueStat: { flex: 1, minWidth: 92, borderRadius: 14, padding: 11, gap: 3 },
+  queueStatValue: { fontSize: 21, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  queueStatLabel: { fontSize: 11, lineHeight: 15, fontWeight: '500' },
+  queueMethod: { fontSize: 11, lineHeight: 16 },
+  documentPipeline: { gap: 0 },
+  documentPipelineRow: { minHeight: 35, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  documentPipelineLabel: { fontSize: 12, textTransform: 'capitalize' },
+  documentPipelineValue: { fontSize: 15, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  errorBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.errorBg },
+  errorText: { fontSize: 13, fontWeight: '500' },
   ticketCard: { gap: 10 },
   ticketTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   ticketIcon: {
@@ -255,9 +378,12 @@ const styles = StyleSheet.create({
   },
   ticketBody: { flex: 1, gap: 3 },
   ticketMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  ticketRef: { color: Academic.primary, fontSize: 13, fontWeight: '900' },
-  ticketTitle: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  ticketRef: { color: Academic.primary, fontSize: 13, fontWeight: '600' },
+  ticketTitle: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   ticketStudent: { color: Academic.textSecondary, fontSize: 12 },
   ticketDesc: { color: Academic.textSecondary, fontSize: 13, lineHeight: 18 },
-  ticketDate: { color: Academic.textSecondary, fontSize: 12, fontWeight: '700' },
+  ticketDate: { color: Academic.textSecondary, fontSize: 12, fontWeight: '400' },
+  statusOverview: { gap: Spacing.two },
+  statusSummary: { minHeight: 46, borderRadius: 13, borderWidth: 1, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  statusSummaryValue: { fontSize: 20, fontWeight: '600', fontVariant: ['tabular-nums'] },
 });

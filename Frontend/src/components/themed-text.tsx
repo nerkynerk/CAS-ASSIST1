@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: TypeScale.body,
     lineHeight: 20,
-    fontWeight: 700,
+    fontWeight: 600,
   },
   default: {
     fontFamily: Fonts.sans,
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.sans,
     fontSize: TypeScale.display,
-    fontWeight: 700,
+    fontWeight: 600,
     lineHeight: 38,
     letterSpacing: -0.8,
   },
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: TypeScale.title,
     lineHeight: 32,
-    fontWeight: 700,
+    fontWeight: 600,
     letterSpacing: -0.45,
   },
   link: {

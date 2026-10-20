@@ -126,7 +126,11 @@ export default function LoginScreen({ category, onNavigateToRegister, onChangeCa
               onSubmitEditing={handleSignIn}
               editable={!loading}
               trailing={
-                <Pressable onPress={() => setShowPass(value => !value)} hitSlop={8}>
+                <Pressable
+                  onPress={() => setShowPass(value => !value)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPass ? 'Hide password' : 'Show password'}>
                   <Text style={[styles.showText, { color: colors.primary }]}>{showPass ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               }
@@ -183,17 +187,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.60)',
     boxShadow: '0 18px 44px rgba(11, 125, 119, 0.24)',
   },
-  appName: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.display, fontWeight: '700', letterSpacing: -0.8 },
-  appSub: { color: Academic.primary, fontFamily: Fonts.sans, fontSize: TypeScale.body, fontWeight: '700', letterSpacing: 0.15 },
+  appName: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.display, fontWeight: '600', letterSpacing: -0.8 },
+  appSub: { color: Academic.primary, fontFamily: Fonts.sans, fontSize: TypeScale.body, fontWeight: '500', letterSpacing: 0.15 },
   appCopy: { color: Academic.textSecondary, fontFamily: Fonts.sans, fontSize: TypeScale.body, lineHeight: 20, textAlign: 'center', maxWidth: 340 },
   card: { width: '100%', maxWidth: 460, alignSelf: 'center', gap: 16, padding: Spacing.four },
-  formTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.title, fontWeight: '700', letterSpacing: -0.45 },
+  formTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.title, fontWeight: '600', letterSpacing: -0.45 },
   formSub: { color: Academic.textSecondary, fontFamily: Fonts.sans, fontSize: TypeScale.body, lineHeight: 20 },
   errorBox: { borderRadius: 12, padding: 11, backgroundColor: Academic.errorBg },
   errorText: { color: Academic.error, fontSize: TypeScale.body, fontWeight: '600' },
-  showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
+  showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '500' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
   footerText: { color: Academic.textSecondary, fontSize: TypeScale.body },
   footerDivider: { color: Academic.border, fontSize: TypeScale.body, marginHorizontal: 3 },
-  footerLink: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
+  footerLink: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '500' },
 });

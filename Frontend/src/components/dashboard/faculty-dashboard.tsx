@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -34,6 +34,7 @@ const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 
 
 interface Schedule {
   id: string;
+  day: string;
   subject_code: string;
   subject_name: string;
   section: string;
@@ -68,6 +69,7 @@ interface AckedRoomChange {
 }
 
 type FacultyView = 'main' | 'room-change';
+type ScheduleView = 'today' | 'week';
 
 function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number);
@@ -85,6 +87,7 @@ export default function FacultyDashboard() {
   const theme = useTheme();
 
   const [view, setView] = useState<FacultyView>('main');
+  const [scheduleView, setScheduleView] = useState<ScheduleView>('today');
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -110,9 +113,8 @@ export default function FacultyDashboard() {
       userId
         ? supabase
             .from('schedules')
-            .select('id, subject_code, subject_name, section, room, time_start, time_end')
+            .select('id, day, subject_code, subject_name, section, room, time_start, time_end')
             .eq('faculty_id', userId)
-            .eq('day', today)
             .eq('state', 'active')
             .order('time_start', { ascending: true })
         : Promise.resolve({ data: [] }),
@@ -134,7 +136,7 @@ export default function FacultyDashboard() {
     setSchedules(schRes.data ?? []);
     setAssignments((assignmentRes.data as FacultyAssignment[] | null) ?? []);
     setAnnouncements(annRes.data ?? []);
-  }, [profileId, today]);
+  }, [profileId]);
 
   const fetchMyRoomChanges = useCallback(async () => {
     if (!profileId) return;
@@ -235,6 +237,8 @@ export default function FacultyDashboard() {
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const todayLabel = today.charAt(0).toUpperCase() + today.slice(1);
+  const todaySchedules = useMemo(() => schedules.filter(schedule => schedule.day === today), [schedules, today]);
+  const visibleSchedules = scheduleView === 'today' ? todaySchedules : schedules;
 
   function selectAssignment(assignment: FacultyAssignment) {
     setSelectedAssignmentId(assignment.id);
@@ -332,12 +336,20 @@ export default function FacultyDashboard() {
             />
           </View>
 
-          <Pressable
-            style={({ pressed }) => [styles.primaryButton, { backgroundColor: theme.primary }, (pressed || posting) && styles.pressed]}
-            onPress={handleRoomChange}
-            disabled={posting || assignments.length === 0}>
-            {posting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Submit Room Change</Text>}
-          </Pressable>
+          <View style={styles.formActions}>
+            <Pressable
+              style={({ pressed }) => [styles.cancelButton, { backgroundColor: theme.muted }, pressed && styles.pressed]}
+              onPress={() => { setRcError(null); setView('main'); }}
+              disabled={posting}>
+              <Text style={[styles.cancelButtonText, { color: theme.textSecondary }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.primaryButton, { backgroundColor: theme.primary }, (pressed || posting) && styles.pressed]}
+              onPress={handleRoomChange}
+              disabled={posting || assignments.length === 0}>
+              {posting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Publish notice</Text>}
+            </Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
     );
@@ -359,7 +371,7 @@ export default function FacultyDashboard() {
         <View style={styles.metricsRow}>
           <MetricCard
             label="Classes today"
-            value={schedules.length}
+            value={todaySchedules.length}
             icon={{ ios: 'calendar', android: 'calendar_today', web: 'calendar_today' }}
             tone="blue"
           />
@@ -397,17 +409,29 @@ export default function FacultyDashboard() {
           />
         </View>
 
-        <SectionHeader title="Today's Classes" action={todayLabel} onAction={() => {}} />
+        <View style={styles.scheduleToolbar}>
+          <SectionHeader title={scheduleView === 'today' ? "Today's Classes" : 'Weekly Schedule'} action={scheduleView === 'today' ? todayLabel : `${schedules.length} meetings`} onAction={() => {}} />
+          <View style={styles.scheduleFilters}>
+            {(['today', 'week'] as const).map(option => {
+              const active = scheduleView === option;
+              return (
+                <Pressable key={option} onPress={() => setScheduleView(option)} style={[styles.scheduleFilter, { backgroundColor: active ? theme.primary : theme.muted }]}>
+                  <Text style={[styles.scheduleFilterText, { color: active ? '#FFFFFF' : theme.textSecondary }]}>{option === 'today' ? 'Today' : 'Full week'}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
         {loading ? (
           <ActivityIndicator color={Academic.primary} style={styles.loader} />
-        ) : schedules.length === 0 ? (
+        ) : visibleSchedules.length === 0 ? (
           <EmptyState
-            title="No classes scheduled"
-            message="There are no active class schedules assigned for today."
+            title={scheduleView === 'today' ? 'No classes scheduled today' : 'No weekly schedule published'}
+            message={scheduleView === 'today' ? 'There are no active class schedules assigned for today.' : 'There are no active class schedules assigned to your account.'}
             icon={{ ios: 'calendar', android: 'calendar_today', web: 'calendar_today' }}
           />
         ) : (
-          schedules.map(schedule => (
+          visibleSchedules.map(schedule => (
             <SurfaceCard key={schedule.id} accent="blue" style={styles.scheduleCard}>
               <View style={styles.scheduleTop}>
                 <View style={styles.scheduleIcon}>
@@ -422,13 +446,43 @@ export default function FacultyDashboard() {
                     {schedule.subject_code} - {schedule.subject_name}
                   </Text>
                   <Text style={[styles.scheduleMeta, { color: theme.textSecondary }]}>
-                    Section {schedule.section} - {schedule.room}
+                    {scheduleView === 'week' ? `${schedule.day.charAt(0).toUpperCase()}${schedule.day.slice(1)} · ` : ''}Section {schedule.section} - {schedule.room}
                   </Text>
                 </View>
               </View>
               <Text style={[styles.scheduleTime, { color: theme.primary }]}>
                 {formatTime(schedule.time_start)} - {formatTime(schedule.time_end)}
               </Text>
+            </SurfaceCard>
+          ))
+        )}
+
+        <SectionHeader title="Assigned Classes" action="Log a room change" onAction={() => setView('room-change')} />
+        {assignments.length === 0 ? (
+          <EmptyState
+            title="No active assignments"
+            message="Your teaching load is assigned by a CAS administrator."
+            icon={{ ios: 'book.closed', android: 'menu_book', web: 'menu_book' }}
+          />
+        ) : (
+          assignments.map(assignment => (
+            <SurfaceCard key={assignment.id} style={styles.assignmentCard} accent="success">
+              <View style={styles.assignmentCardIcon}>
+                <AcademicIcon
+                  name={{ ios: 'book.closed', android: 'menu_book', web: 'menu_book' }}
+                  color={theme.success}
+                  size={19}
+                  animated={false}
+                />
+              </View>
+              <View style={styles.assignmentCardCopy}>
+                <Text style={[styles.assignmentCardTitle, { color: theme.navy }]} numberOfLines={1}>
+                  {assignment.subject_code} - {assignment.subject_title}
+                </Text>
+                <Text style={[styles.assignmentCardMeta, { color: theme.textSecondary }]}>
+                  Section {assignment.section_code} - {assignment.room || 'Room not set'}
+                </Text>
+              </View>
             </SurfaceCard>
           ))
         )}
@@ -452,7 +506,7 @@ export default function FacultyDashboard() {
                     {[change.subject_code, change.section_code].filter(Boolean).join(' - ') || 'Room relocation'}
                   </Text>
                 </View>
-                <StatusBadge label={`${change.ack_count} ack${change.ack_count === 1 ? '' : 's'}`} tone="blue" />
+                <StatusBadge label={`${change.ack_count} acknowledged`} tone={change.ack_count > 0 ? 'success' : 'muted'} />
               </View>
               <Text style={[styles.roomTime, { color: theme.textSecondary }]}>{formatDate(change.effective_at)}</Text>
             </SurfaceCard>
@@ -518,9 +572,18 @@ const styles = StyleSheet.create({
   },
   assignmentOptionSelected: { borderColor: Academic.primary, backgroundColor: Academic.softBlue },
   assignmentCopy: { flex: 1, gap: 3 },
-  assignmentTitle: { color: Academic.navy, fontSize: 14, fontWeight: '900' },
+  assignmentTitle: { color: Academic.navy, fontSize: 14, fontWeight: '600' },
   assignmentMeta: { color: Academic.textSecondary, fontSize: 12 },
+  assignmentCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  assignmentCardIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: Academic.successBg },
+  assignmentCardCopy: { flex: 1, gap: 3 },
+  assignmentCardTitle: { color: Academic.navy, fontSize: 14, fontWeight: '600' },
+  assignmentCardMeta: { color: Academic.textSecondary, fontSize: 12 },
   loader: { marginTop: Spacing.four },
+  scheduleToolbar: { gap: Spacing.two },
+  scheduleFilters: { flexDirection: 'row', gap: Spacing.two },
+  scheduleFilter: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999 },
+  scheduleFilterText: { fontSize: 12, fontWeight: '500' },
   scheduleCard: { gap: 10 },
   scheduleTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   scheduleIcon: {
@@ -532,25 +595,25 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.softBlue,
   },
   scheduleInfo: { flex: 1, gap: 2 },
-  scheduleTitle: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  scheduleTitle: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   scheduleMeta: { color: Academic.textSecondary, fontSize: 13 },
-  scheduleTime: { color: Academic.primary, fontSize: 13, fontWeight: '900' },
+  scheduleTime: { color: Academic.primary, fontSize: 13, fontWeight: '500' },
   roomCard: { gap: 8 },
   roomCardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  roomTitle: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  roomTitle: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   roomSub: { color: Academic.textSecondary, fontSize: 13 },
   roomTime: { color: Academic.textSecondary, fontSize: 12 },
   announcementCard: { gap: 5 },
-  announcementTitle: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  announcementTitle: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   announcementBody: { color: Academic.textSecondary, fontSize: 13, lineHeight: 18 },
   announcementFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
-  announcementDate: { color: Academic.textSecondary, fontSize: 12, fontWeight: '700' },
-  expandText: { color: Academic.primary, fontSize: 12, fontWeight: '900' },
+  announcementDate: { color: Academic.textSecondary, fontSize: 12, fontWeight: '400' },
+  expandText: { color: Academic.primary, fontSize: 12, fontWeight: '500' },
   formHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: Spacing.four },
-  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '700', letterSpacing: -0.45 },
+  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '600', letterSpacing: -0.45 },
   pageSubtitle: { color: Academic.textSecondary, fontSize: 13, marginTop: 3 },
   fieldGroup: { gap: 7 },
-  fieldLabel: { color: Academic.textSecondary, fontSize: 13, fontWeight: '800' },
+  fieldLabel: { color: Academic.textSecondary, fontSize: 13, fontWeight: '500' },
   input: {
     height: 50,
     borderRadius: 14,
@@ -572,15 +635,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   primaryButton: {
+    flex: 2,
     height: 52,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Academic.primary,
   },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  formActions: { flexDirection: 'row', gap: Spacing.two },
+  cancelButton: { flex: 1, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  cancelButtonText: { fontSize: 15, fontWeight: '500' },
   errorBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.errorBg },
-  errorText: { color: Academic.error, fontSize: 13, fontWeight: '800' },
+  errorText: { color: Academic.error, fontSize: 13, fontWeight: '500' },
   successBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.successBg },
-  successText: { color: Academic.success, fontSize: 13, fontWeight: '800' },
+  successText: { color: Academic.success, fontSize: 13, fontWeight: '500' },
 });

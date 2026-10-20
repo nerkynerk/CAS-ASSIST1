@@ -14,6 +14,7 @@ import Building2 from 'lucide-react-native/icons/building';
 import CalendarDays from 'lucide-react-native/icons/calendar-days';
 import CheckCircle2 from 'lucide-react-native/icons/circle-check-big';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
 import ChevronRight from 'lucide-react-native/icons/chevron-right';
 import ChevronUp from 'lucide-react-native/icons/chevron-up';
 import Circle from 'lucide-react-native/icons/circle';
@@ -38,6 +39,7 @@ import MessageCircle from 'lucide-react-native/icons/message-circle';
 import Moon from 'lucide-react-native/icons/moon';
 import Pin from 'lucide-react-native/icons/pin';
 import Plus from 'lucide-react-native/icons/plus';
+import RefreshCw from 'lucide-react-native/icons/refresh-cw';
 import ShieldCheck from 'lucide-react-native/icons/shield-check';
 import Search from 'lucide-react-native/icons/search';
 import Sparkles from 'lucide-react-native/icons/sparkles';
@@ -50,6 +52,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -97,6 +100,7 @@ const ICONS: Record<string, LucideIcon> = {
   keyboard_arrow_down: ChevronDown,
   keyboard_arrow_up: ChevronUp,
   chevron_right: ChevronRight,
+  chevron_left: ChevronLeft,
   contrast: Contrast,
   dark_mode: Moon,
   database: Database,
@@ -119,6 +123,7 @@ const ICONS: Record<string, LucideIcon> = {
   priority_high: CircleAlert,
   push_pin: Pin,
   radio_button_unchecked: Circle,
+  refresh: RefreshCw,
   schedule: Clock3,
   school: GraduationCap,
   search: Search,
@@ -134,18 +139,65 @@ const BADGE_ENTERING = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 export const Academic = BrandColors;
 
 export function AppBackdrop() {
-  const { colors, resolvedTheme } = useAppTheme();
+  const { colors } = useAppTheme();
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />;
+}
+
+export type GlassVariant = 'standard' | 'strong' | 'soft';
+
+function glassConfig(variant: GlassVariant, resolvedTheme: 'light' | 'dark') {
+  const dark = resolvedTheme === 'dark';
+  return {
+    backgroundColor: variant === 'strong'
+      ? dark ? 'rgba(24,40,38,0.96)' : 'rgba(255,255,255,0.96)'
+      : variant === 'soft'
+        ? dark ? 'rgba(24,40,38,0.78)' : 'rgba(255,255,255,0.78)'
+        : dark ? 'rgba(24,40,38,0.90)' : 'rgba(255,255,255,0.90)',
+    intensity: variant === 'strong' ? 8 : variant === 'soft' ? 5 : 6,
+  };
+}
+
+function GlassOverlay({ variant }: { variant: GlassVariant }) {
+  const { resolvedTheme } = useAppTheme();
+  const config = glassConfig(variant, resolvedTheme);
+
+  if (Platform.OS === 'web') return null;
+  if (isLiquidGlassAvailable()) {
+    return <GlassView pointerEvents="none" style={StyleSheet.absoluteFill} />;
+  }
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}>
-      <View style={[styles.backdropGlow, styles.backdropGlowTop, {
-        backgroundColor: resolvedTheme === 'dark' ? 'rgba(94,209,200,0.12)' : 'rgba(135,206,196,0.24)',
-      }]} />
-      <View style={[styles.backdropGlow, styles.backdropGlowBottom, {
-        backgroundColor: resolvedTheme === 'dark' ? 'rgba(66,104,99,0.16)' : 'rgba(219,229,214,0.56)',
-      }]} />
-      <View style={[styles.backdropHalo, {
-        borderColor: resolvedTheme === 'dark' ? 'rgba(94,209,200,0.06)' : 'rgba(11,125,119,0.05)',
-      }]} />
+    <BlurView
+      pointerEvents="none"
+      intensity={resolvedTheme === 'dark' ? Math.max(6, config.intensity - 1) : config.intensity}
+      tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
+      experimentalBlurMethod="dimezisBlurView"
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
+
+export function GlassSurface({
+  children,
+  variant = 'standard',
+  style,
+}: {
+  children: ReactNode;
+  variant?: GlassVariant;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors, resolvedTheme } = useAppTheme();
+  const config = glassConfig(variant, resolvedTheme);
+
+  return (
+    <View
+      style={[
+        styles.glassSurface,
+        { backgroundColor: config.backgroundColor, borderColor: colors.border },
+        Platform.OS === 'web' && styles.webGlassSurface,
+        style,
+      ]}>
+      <GlassOverlay variant={variant} />
+      {children}
     </View>
   );
 }
@@ -183,14 +235,16 @@ export function AcademicIcon({
   name,
   size = 20,
   color = Academic.primary,
+  animated = true,
 }: {
   name: AcademicIconName;
   size?: number;
   color?: string;
+  animated?: boolean;
 }) {
   if (process.env.EXPO_OS === 'ios') {
     return (
-      <Animated.View entering={ICON_ENTERING} style={{ width: size, height: size }}>
+      <Animated.View entering={animated ? ICON_ENTERING : undefined} style={{ width: size, height: size }}>
         <SymbolView name={name} size={size} tintColor={color} weight="semibold" />
       </Animated.View>
     );
@@ -199,10 +253,10 @@ export function AcademicIcon({
   const materialName = typeof name === 'object'
     ? process.env.EXPO_OS === 'android' ? name.android : name.web
     : undefined;
-  const Icon = materialName ? ICONS[materialName] : CircleHelp;
+  const Icon = materialName ? ICONS[materialName] ?? CircleHelp : CircleHelp;
 
   return (
-    <Animated.View entering={ICON_ENTERING} style={{ width: size, height: size }}>
+    <Animated.View entering={animated ? ICON_ENTERING : undefined} style={{ width: size, height: size }}>
       <Icon color={color} size={size} strokeWidth={2.1} absoluteStrokeWidth />
     </Animated.View>
   );
@@ -264,26 +318,27 @@ export function RoleHeroHeader({
   subtitle: string;
   right?: ReactNode;
 }) {
+  const { colors } = useAppTheme();
+
   return (
-    <Animated.View entering={HERO_ENTERING} style={styles.hero}>
-      <View style={styles.heroGlowLarge} />
-      <View style={styles.heroGlowSmall} />
-      <View style={styles.heroRule} />
+    <Animated.View entering={HERO_ENTERING} style={[styles.hero, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.heroRule, { backgroundColor: colors.border }]} />
       <View style={styles.heroContent}>
         <View style={styles.heroCopy}>
-          <View style={styles.heroLabelPill}>
-            <View style={styles.heroLabelDot} />
-            <Text style={styles.heroLabel}>{label}</Text>
+          <View style={[styles.heroLabelPill, { backgroundColor: colors.softBlue }]}>
+            <View style={[styles.heroLabelDot, { backgroundColor: colors.primary }]} />
+            <Text style={[styles.heroLabel, { color: colors.primary }]}>{label}</Text>
           </View>
-          <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
-          <Text style={styles.heroSubtitle} numberOfLines={2}>{subtitle}</Text>
+          <Text style={[styles.heroTitle, { color: colors.navy }]} numberOfLines={2}>{title}</Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>{subtitle}</Text>
         </View>
         {right ?? (
-          <View style={styles.heroIconButton}>
+          <View style={[styles.heroIconButton, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }]}>
             <AcademicIcon
-              name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
-              color="#FFFFFF"
-              size={24}
+              name={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }}
+              color={colors.primary}
+              size={21}
+              animated={false}
             />
           </View>
         )}
@@ -301,24 +356,23 @@ export function SurfaceCard({
   style?: StyleProp<ViewStyle>;
   accent?: 'blue' | 'success' | 'error' | 'warning';
 }) {
-  const { colors: themeColors, resolvedTheme } = useAppTheme();
+  const { colors: themeColors } = useAppTheme();
   const accentColor = accent === 'success'
-    ? Academic.success
+    ? themeColors.success
     : accent === 'error'
-      ? Academic.error
+      ? themeColors.error
       : accent === 'warning'
-        ? Academic.warningText
+        ? themeColors.warning
         : accent === 'blue'
-          ? Academic.primary
+          ? themeColors.primary
           : undefined;
 
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: process.env.EXPO_OS === 'web'
-        ? resolvedTheme === 'dark' ? 'rgba(24,40,38,0.88)' : 'rgba(255,255,255,0.78)'
-        : themeColors.card,
+      backgroundColor: themeColors.card,
       borderColor: themeColors.border,
+      ...(Platform.OS === 'web' ? styles.webGlassSurface : {}),
     },
     accentColor && { borderLeftWidth: 4, borderLeftColor: accentColor },
     style,
@@ -326,17 +380,7 @@ export function SurfaceCard({
 
   return (
     <Animated.View entering={process.env.EXPO_OS === 'web' ? undefined : CARD_ENTERING} style={cardStyle}>
-      {process.env.EXPO_OS === 'web' ? null : isLiquidGlassAvailable() ? (
-        <GlassView pointerEvents="none" style={StyleSheet.absoluteFill} />
-      ) : (
-        <BlurView
-          pointerEvents="none"
-          intensity={resolvedTheme === 'dark' ? 42 : 62}
-          tint={resolvedTheme === 'dark' ? 'dark' : 'light'}
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
-      )}
+      <GlassOverlay variant="standard" />
       {children}
     </Animated.View>
   );
@@ -632,32 +676,25 @@ export function shortRef(id: string, prefix = 'T') {
 }
 
 const styles = StyleSheet.create({
-  backdropGlow: {
-    position: 'absolute',
-    width: 360,
-    height: 360,
-    borderRadius: 180,
+  glassSurface: {
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    overflow: 'hidden',
   },
-  backdropGlowTop: { top: -150, right: -125 },
-  backdropGlowBottom: { bottom: -180, left: -130 },
-  backdropHalo: {
-    position: 'absolute',
-    top: '18%',
-    left: '50%',
-    width: 560,
-    height: 560,
-    marginLeft: -280,
-    borderRadius: 280,
-    borderWidth: 80,
+  webGlassSurface: {
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } as unknown as ViewStyle)
+      : {}),
   },
-  pressed: { opacity: 0.84, transform: [{ scale: 0.97 }] },
+  pressed: { opacity: 0.78 },
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    maxWidth: 128,
+    maxWidth: 280,
+    flexShrink: 0,
   },
-  badgeText: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '700', letterSpacing: 0.15 },
+  badgeText: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '600', letterSpacing: 0.15 },
   sectionHeader: {
     minHeight: 36,
     flexDirection: 'row',
@@ -666,50 +703,26 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flex: 1 },
-  sectionTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.section, fontWeight: '700', letterSpacing: -0.2 },
-  sectionAction: { color: Academic.primary, fontFamily: Fonts.sans, fontSize: TypeScale.body, fontWeight: '700' },
+  sectionTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.section, fontWeight: '600', letterSpacing: -0.2 },
+  sectionAction: { color: Academic.primary, fontFamily: Fonts.sans, fontSize: TypeScale.body, fontWeight: '500' },
   hero: {
-    minHeight: 220,
-    marginHorizontal: -Spacing.three,
-    marginTop: -Spacing.one,
-    marginBottom: -Spacing.two,
-    borderBottomLeftRadius: Radius.panel,
-    borderBottomRightRadius: Radius.panel,
+    minHeight: 128,
+    borderRadius: Radius.card,
     overflow: 'hidden',
-    backgroundColor: '#123936',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.32)',
-    boxShadow: '0 24px 64px rgba(18, 57, 54, 0.22)',
+    boxShadow: '0 2px 10px rgba(24, 55, 51, 0.04)',
   },
-  heroGlowLarge: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    right: -86,
-    top: -144,
-    backgroundColor: 'rgba(94,209,200,0.16)',
-  },
-  heroGlowSmall: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    right: 92,
-    bottom: -112,
-    backgroundColor: 'rgba(200,221,214,0.09)',
-  },
-  heroRule: { position: 'absolute', left: 24, right: 24, bottom: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.16)' },
+  heroRule: { position: 'absolute', left: 24, right: 24, bottom: 0, height: 1 },
   heroContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.three,
     paddingHorizontal: Spacing.four,
-    paddingTop: 54,
-    paddingBottom: Spacing.five,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.four,
   },
-  heroCopy: { flex: 1, gap: 10 },
+  heroCopy: { flex: 1, gap: 7 },
   heroLabelPill: {
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
@@ -718,21 +731,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(255,255,255,0.11)',
   },
-  heroLabelDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#72DED5' },
-  heroLabel: { color: '#E7F7F4', fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '700', letterSpacing: 0.35 },
-  heroTitle: { color: '#FFFFFF', fontFamily: Fonts.sans, fontSize: TypeScale.display, lineHeight: 38, fontWeight: '700', letterSpacing: -0.8 },
-  heroSubtitle: { color: '#D4E5E1', fontFamily: Fonts.sans, fontSize: TypeScale.control, lineHeight: 22 },
+  heroLabelDot: { width: 6, height: 6, borderRadius: 3 },
+  heroLabel: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '600', letterSpacing: 0.35, textTransform: 'uppercase' },
+  heroTitle: { fontFamily: Fonts.sans, fontSize: 28, lineHeight: 34, fontWeight: '600', letterSpacing: -0.55 },
+  heroSubtitle: { fontFamily: Fonts.sans, fontSize: TypeScale.body, lineHeight: 20 },
   heroIconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.control,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
   },
   card: {
     ...Shadows.card,
@@ -741,9 +751,9 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     backgroundColor: Academic.card,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.72)',
+    borderColor: 'rgba(19,62,59,0.11)',
     overflow: 'hidden',
-    boxShadow: '0 16px 44px rgba(24, 55, 51, 0.085)',
+    boxShadow: '0 2px 10px rgba(24, 55, 51, 0.04)',
   },
   metricCard: { flex: 1, flexBasis: 160, gap: 8, minHeight: 126 },
   metricIcon: {
@@ -753,8 +763,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  metricValue: { fontFamily: Fonts.sans, fontSize: TypeScale.title, fontWeight: '700', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
-  metricLabel: { color: Academic.textSecondary, fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17, fontWeight: '600' },
+  metricValue: { fontFamily: Fonts.sans, fontSize: TypeScale.title, fontWeight: '600', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  metricLabel: { color: Academic.textSecondary, fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17, fontWeight: '500' },
   emptyState: { alignItems: 'center', gap: 7, paddingVertical: Spacing.four },
   emptyIcon: {
     width: 44,
@@ -764,7 +774,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.muted,
   },
-  emptyTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.control, fontWeight: '700', textAlign: 'center' },
+  emptyTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.control, fontWeight: '600', textAlign: 'center' },
   emptyMessage: { color: Academic.textSecondary, fontFamily: Fonts.sans, fontSize: TypeScale.body, lineHeight: 20, textAlign: 'center' },
   chatLauncherLayer: {
     position: 'absolute',
@@ -830,7 +840,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: TypeScale.control,
     lineHeight: 20,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0.1,
   },
   fieldGroup: { gap: Spacing.one },
@@ -838,7 +848,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: TypeScale.body,
     lineHeight: 20,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   textFieldShell: {
     minHeight: 52,

@@ -44,3 +44,30 @@ export async function apiPost<T = unknown>(path: string, body: unknown): Promise
   if (res.status === 204) return undefined as T;
   return res.json() as T;
 }
+
+export async function apiGet<T = unknown>(path: string): Promise<T> {
+  if (!BASE) {
+    throw new Error('This optional service is not configured.');
+  }
+
+  const token = await getToken();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? `Request failed: ${res.status}`);
+  }
+  return res.json() as T;
+}

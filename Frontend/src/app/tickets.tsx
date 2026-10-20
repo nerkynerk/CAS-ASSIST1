@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -50,6 +51,7 @@ interface Ticket {
   status: string;
   priority: string;
   created_at: string;
+  updated_at?: string;
 }
 
 type RequestFilter = 'active' | 'completed' | 'all';
@@ -163,13 +165,18 @@ function CurrentTicketCard({
   );
 }
 
-function RequestListCard({ ticket }: { ticket: Ticket }) {
+function RequestListCard({ ticket, onPress }: { ticket: Ticket; onPress: () => void }) {
   const isComplete = ticket.status === 'resolved';
   const tone = STATUS_TONE[ticket.status] ?? 'muted';
   const colors = useTheme();
 
   return (
-    <SurfaceCard style={styles.requestCard}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Open request ${shortRef(ticket.id)}`}
+      style={({ pressed }) => [styles.requestPressable, pressed && styles.pressed]}>
+      <SurfaceCard style={styles.requestCard}>
       <View style={[styles.requestIcon, { backgroundColor: isComplete ? colors.successBg : colors.muted }]}>
         <AcademicIcon
           name={
@@ -198,7 +205,49 @@ function RequestListCard({ ticket }: { ticket: Ticket }) {
         color={colors.textTertiary}
         size={18}
       />
-    </SurfaceCard>
+      </SurfaceCard>
+    </Pressable>
+  );
+}
+
+type RequestFilterOption = { value: string; label: string };
+
+function RequestFilterSelect({
+  label,
+  value,
+  options,
+  expanded,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  options: RequestFilterOption[];
+  expanded: boolean;
+  onPress: () => void;
+}) {
+  const colors = useTheme();
+  const selected = options.find(option => option.value === value)?.label ?? value;
+
+  return (
+    <View style={styles.requestFilterSelect}>
+      <Text style={[styles.requestFilterLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${selected}`}
+        accessibilityState={{ expanded }}
+        onPress={onPress}
+        style={({ pressed }) => [styles.requestFilterControl, { backgroundColor: colors.muted, borderColor: expanded ? colors.primary : colors.border }, pressed && styles.pressed]}>
+        <Text style={[styles.requestFilterControlText, { color: colors.text }]} numberOfLines={1}>{selected}</Text>
+        <AcademicIcon
+          name={expanded
+            ? { ios: 'chevron.up', android: 'expand_less', web: 'expand_less' }
+            : { ios: 'chevron.down', android: 'expand_more', web: 'expand_more' }}
+          color={colors.textSecondary}
+          size={16}
+          animated={false}
+        />
+      </Pressable>
+    </View>
   );
 }
 
@@ -208,7 +257,7 @@ function NewTicketForm({
   userId,
 }: {
   onBack: () => void;
-  onSubmitted: () => Promise<void>;
+  onSubmitted: (ticketId: string | null) => Promise<void>;
   userId: string | undefined;
 }) {
   const colors = useTheme();
@@ -224,7 +273,7 @@ function NewTicketForm({
     if (!userId) { setFormError('User session expired. Please sign in again.'); return; }
 
     setSubmitting(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('advising_ticket_pipeline')
       .insert({
         student_id: userId,
@@ -232,7 +281,9 @@ function NewTicketForm({
         description: description.trim(),
         priority: 'normal',
         status: 'submitted',
-      });
+      })
+      .select('id')
+      .single();
     setSubmitting(false);
 
     if (error) {
@@ -240,7 +291,7 @@ function NewTicketForm({
     } else {
       setCategory('');
       setDescription('');
-      await onSubmitted();
+      await onSubmitted(data?.id ?? null);
       onBack();
     }
   }
@@ -263,13 +314,15 @@ function NewTicketForm({
           <Text style={[styles.pageTitle, { color: colors.navy }]}>New Request</Text>
         </View>
 
+        <Text style={[styles.formIntro, { color: colors.textSecondary }]}>Choose the service area and describe what the CAS service desk needs to help with. Fields marked required must be completed before submission.</Text>
+
         {formError ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{formError}</Text>
           </View>
         ) : null}
 
-        <SectionHeader title="Request Type" />
+        <SectionHeader title="Request Type · Required" />
         <View style={styles.chipGrid}>
           {CATEGORIES.map(c => {
             const active = category === c;
@@ -284,7 +337,7 @@ function NewTicketForm({
           })}
         </View>
 
-        <SectionHeader title="Details" />
+        <SectionHeader title="Details · Required" />
         <TextInput
           style={[styles.textarea, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
           placeholder="Please provide as much detail as possible..."
@@ -298,6 +351,11 @@ function NewTicketForm({
         />
         <Text style={[styles.charCount, { color: colors.textSecondary }]}>{description.length}/800</Text>
 
+        <Pressable
+          onPress={onBack}
+          style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+          <Text style={[styles.cancelButtonText, { color: colors.primary }]}>Cancel</Text>
+        </Pressable>
         <Pressable
           style={({ pressed }) => [styles.submitButton, (pressed || submitting) && styles.pressed]}
           onPress={handleSubmit}
@@ -315,30 +373,36 @@ function NewTicketForm({
 
 function TicketsScreenContent() {
   const { profile, session } = useAuth();
+  const router = useRouter();
   const colors = useTheme();
   const [view, setView] = useState<ScreenView>('list');
   const [filter, setFilter] = useState<RequestFilter>('active');
+  const [query, setQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [openRequestFilter, setOpenRequestFilter] = useState<'status' | 'category' | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [metrics, setMetrics] = useState<QueueMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updateAlert, setUpdateAlert] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const userId = profile?.id ?? session?.user.id;
   const fetchRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   const fetchTickets = useCallback(async () => {
     if (!userId) return;
-    const [{ data }, queueMetrics] = await Promise.all([
+    const [{ data, error }, queueMetrics] = await Promise.all([
       supabase
         .from('advising_ticket_pipeline')
-        .select('id, category, description, status, priority, created_at')
+        .select('id, category, description, status, priority, created_at, updated_at')
         .eq('student_id', userId)
         .eq('state', 'active')
         .order('created_at', { ascending: false }),
       computeQueueMetrics(userId),
     ]);
 
+    setLoadError(error ? 'We could not load your requests. Please refresh and try again.' : null);
     setTickets(data ?? []);
     setMetrics(queueMetrics);
   }, [userId]);
@@ -388,17 +452,62 @@ function TicketsScreenContent() {
   const activeTickets = tickets.filter(t => ACTIVE_STATUSES.includes(t.status));
   const currentTicket = activeTickets[0];
 
+  const categoryOptions = useMemo(() => (
+    Array.from(new Set(tickets.map(ticket => ticket.category).filter(Boolean))).sort()
+  ), [tickets]);
+
   const visibleTickets = useMemo(() => {
-    if (filter === 'active') return tickets.filter(t => ACTIVE_STATUSES.includes(t.status));
-    if (filter === 'completed') return tickets.filter(t => t.status === 'resolved');
-    return tickets;
-  }, [filter, tickets]);
+    const normalizedQuery = query.trim().toLowerCase();
+    return tickets.filter(ticket => {
+      const matchesStatus = filter === 'active'
+        ? ACTIVE_STATUSES.includes(ticket.status)
+        : filter === 'completed'
+          ? ticket.status === 'resolved'
+          : true;
+      const matchesCategory = categoryFilter === 'all' || ticket.category === categoryFilter;
+      const searchable = `${shortRef(ticket.id)} ${ticket.category} ${ticket.description}`.toLowerCase();
+      return matchesStatus && matchesCategory && (!normalizedQuery || searchable.includes(normalizedQuery));
+    });
+  }, [categoryFilter, filter, query, tickets]);
+
+  const requestStatusOptions = useMemo(() => [
+    { value: 'active', label: 'Active requests' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'all', label: 'All requests' },
+  ], []);
+  const requestCategoryOptions = useMemo(() => [
+    { value: 'all', label: 'All categories' },
+    ...categoryOptions.map(value => ({ value, label: formatCategory(value) })),
+  ], [categoryOptions]);
+  const openRequestOptions = openRequestFilter === 'status' ? requestStatusOptions : requestCategoryOptions;
+  const hasRequestFilters = Boolean(query || categoryFilter !== 'all' || filter !== 'active');
+
+  function chooseRequestFilter(value: string) {
+    if (openRequestFilter === 'status') setFilter(value as RequestFilter);
+    if (openRequestFilter === 'category') setCategoryFilter(value);
+    setOpenRequestFilter(null);
+  }
+
+  function resetRequestFilters() {
+    setFilter('active');
+    setQuery('');
+    setCategoryFilter('all');
+    setOpenRequestFilter(null);
+  }
+
+  async function handleSubmitted(ticketId: string | null) {
+    await fetchTickets();
+    setUpdateAlert('Request submitted successfully.');
+    if (ticketId) {
+      router.push(`/ticket/${ticketId}?created=1` as never);
+    }
+  }
 
   if (view === 'new') {
     return (
       <NewTicketForm
         onBack={() => setView('list')}
-        onSubmitted={fetchTickets}
+        onSubmitted={handleSubmitted}
         userId={userId}
       />
     );
@@ -432,24 +541,90 @@ function TicketsScreenContent() {
           </View>
         ) : null}
 
-        <View style={styles.segmented}>
-          {(['active', 'completed', 'all'] as const).map(item => {
-            const active = filter === item;
-            return (
-              <Pressable
-                key={item}
-                onPress={() => setFilter(item)}
-                style={[styles.segment, { backgroundColor: active ? colors.card : 'transparent' }, active && styles.segmentActive]}>
-                <Text style={[styles.segmentText, { color: active ? colors.navy : colors.textSecondary }]}>
-                  {item.charAt(0).toUpperCase() + item.slice(1)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {loadError ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{loadError}</Text>
+          </View>
+        ) : null}
 
-        <BentoGrid>
-          <BentoPanel size="wide">
+        <SurfaceCard style={styles.filterCard}>
+          <View style={styles.searchFieldShell}>
+            <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={colors.textSecondary} size={18} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search reference, category, or description"
+              placeholderTextColor={colors.textTertiary}
+              accessibilityLabel="Search my requests"
+              style={[styles.searchInput, { color: colors.text }]}
+              returnKeyType="search"
+            />
+          </View>
+          <View style={styles.requestFilterToolbar}>
+            <RequestFilterSelect label="Status" value={filter} options={requestStatusOptions} expanded={openRequestFilter === 'status'} onPress={() => setOpenRequestFilter(value => value === 'status' ? null : 'status')} />
+            <RequestFilterSelect label="Category" value={categoryFilter} options={requestCategoryOptions} expanded={openRequestFilter === 'category'} onPress={() => setOpenRequestFilter(value => value === 'category' ? null : 'category')} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Reset request filters"
+              disabled={!hasRequestFilters}
+              onPress={resetRequestFilters}
+              style={({ pressed }) => [styles.requestResetButton, { borderColor: colors.border, backgroundColor: colors.backgroundElement }, !hasRequestFilters && styles.requestResetDisabled, pressed && styles.pressed]}>
+              <AcademicIcon name={{ ios: 'arrow.counterclockwise', android: 'restart_alt', web: 'restart_alt' }} color={colors.primary} size={16} animated={false} />
+              <Text style={[styles.requestResetText, { color: colors.primary }]}>Reset</Text>
+            </Pressable>
+          </View>
+          {openRequestFilter ? (
+            <View style={[styles.requestFilterMenu, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+              <Text style={[styles.requestFilterMenuLabel, { color: colors.textSecondary }]}>Choose {openRequestFilter === 'status' ? 'status' : 'category'}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.requestFilterOptions}>
+                {openRequestOptions.map(option => {
+                  const selected = (openRequestFilter === 'status' && filter === option.value)
+                    || (openRequestFilter === 'category' && categoryFilter === option.value);
+                  return (
+                    <Pressable
+                      key={option.value}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                      onPress={() => chooseRequestFilter(option.value)}
+                      style={({ pressed }) => [styles.requestFilterOption, { backgroundColor: selected ? colors.primary : colors.muted }, pressed && styles.pressed]}>
+                      <Text style={[styles.requestFilterOptionText, { color: selected ? '#FFFFFF' : colors.textSecondary }]}>{option.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+        </SurfaceCard>
+
+        <BentoGrid style={styles.metricGrid}>
+          <BentoPanel size="compact" style={styles.metricPanel}>
+            <MetricCard
+              label="Active requests"
+              value={activeTickets.length}
+              tone="blue"
+              icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }}
+            />
+          </BentoPanel>
+          <BentoPanel size="compact" style={styles.metricPanel}>
+            <MetricCard
+              label="Completed"
+              value={tickets.filter(ticket => ticket.status === 'resolved').length}
+              tone="success"
+              icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
+            />
+          </BentoPanel>
+          <BentoPanel size="compact" style={styles.metricPanel}>
+            <MetricCard
+              label="Total requests"
+              value={tickets.length}
+              tone="muted"
+              icon={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }}
+            />
+          </BentoPanel>
+        </BentoGrid>
+
+        <BentoGrid style={styles.currentTicketGrid}>
+          <BentoPanel size="wide" style={styles.fullWidthPanel}>
             {currentTicket ? (
               <CurrentTicketCard ticket={currentTicket} metrics={metrics} />
             ) : (
@@ -460,42 +635,30 @@ function TicketsScreenContent() {
               />
             )}
           </BentoPanel>
-          <BentoPanel size="compact">
-            <View style={styles.metricsStack}>
-              <MetricCard
-                label="Active requests"
-                value={activeTickets.length}
-                tone="blue"
-                icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }}
-              />
-              <MetricCard
-                label="Completed"
-                value={tickets.filter(ticket => ticket.status === 'resolved').length}
-                tone="success"
-                icon={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }}
-              />
-              <MetricCard
-                label="Total shown"
-                value={tickets.length}
-                tone="muted"
-                icon={{ ios: 'list.bullet', android: 'format_list_bulleted', web: 'format_list_bulleted' }}
-              />
-            </View>
-          </BentoPanel>
         </BentoGrid>
 
         {loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : visibleTickets.length === 0 ? (
           <EmptyState
-            title={filter === 'active' ? 'No active requests' : 'No requests found'}
-            message={filter === 'active'
+            title={query || categoryFilter !== 'all' ? 'No requests match these filters' : filter === 'active' ? 'No active requests' : 'No requests found'}
+            message={query || categoryFilter !== 'all'
+              ? 'Clear a filter or try a different search.'
+              : filter === 'active'
               ? 'Submitted requests that are still being processed will appear here.'
               : 'Try another filter or create a new request.'}
             icon={{ ios: 'tray', android: 'inbox', web: 'inbox' }}
           />
         ) : (
-          visibleTickets.map(ticket => <RequestListCard key={ticket.id} ticket={ticket} />)
+          <View style={styles.requestList}>
+            {visibleTickets.map(ticket => (
+              <RequestListCard
+                key={ticket.id}
+                ticket={ticket}
+                onPress={() => router.push(`/ticket/${ticket.id}` as never)}
+              />
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -529,20 +692,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.three,
   },
-  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '700', letterSpacing: -0.45 },
+  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '600', letterSpacing: -0.45 },
+  formIntro: { fontSize: 14, lineHeight: 21, marginTop: -Spacing.two },
   infoBanner: {
     borderRadius: 14,
     padding: 12,
     backgroundColor: Academic.softBlue,
   },
-  infoBannerText: { color: Academic.primary, fontSize: 13, fontWeight: '700' },
+  infoBannerText: { color: Academic.primary, fontSize: 13, fontWeight: '500' },
   segmented: {
     flexDirection: 'row',
     padding: 4,
     borderRadius: 12,
     backgroundColor: Academic.muted,
   },
-  metricsStack: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  metricGrid: { alignItems: 'stretch' },
+  metricPanel: { minWidth: 0 },
+  currentTicketGrid: { alignItems: 'stretch' },
+  fullWidthPanel: { flexBasis: '100%' },
+  requestList: { width: '100%', gap: Spacing.two },
+  requestPressable: { width: '100%', borderRadius: 16 },
   segment: {
     flex: 1,
     minHeight: 36,
@@ -554,7 +723,7 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.card,
     boxShadow: '0 8px 24px rgba(50, 82, 87, 0.11)',
   },
-  segmentText: { color: Academic.textSecondary, fontSize: 14, fontWeight: '800' },
+  segmentText: { color: Academic.textSecondary, fontSize: 14, fontWeight: '500' },
   segmentTextActive: { color: Academic.navy },
   currentTicketCard: {
     minHeight: 164,
@@ -566,19 +735,19 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.primary,
   },
   currentText: { flex: 1, gap: 8 },
-  currentLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  currentLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '500' },
   currentRefRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  currentRef: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: '900' },
+  currentRef: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: '600' },
   currentCategoryPill: {
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 6,
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
-  currentCategoryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  currentCategoryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   currentStats: { flexDirection: 'row', gap: Spacing.four, marginTop: 2 },
-  currentStatLabel: { color: '#FFFFFF', opacity: 0.92, fontSize: 12, fontWeight: '700' },
-  currentStatValue: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
+  currentStatLabel: { color: '#FFFFFF', opacity: 0.92, fontSize: 12, fontWeight: '400' },
+  currentStatValue: { color: '#FFFFFF', fontSize: 20, fontWeight: '600' },
   currentClock: {
     width: 92,
     height: 92,
@@ -605,9 +774,41 @@ const styles = StyleSheet.create({
   requestIconDone: { backgroundColor: Academic.successBg },
   requestCardBody: { flex: 1, gap: 3 },
   requestMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  requestRef: { color: Academic.primary, fontSize: 13, fontWeight: '900' },
-  requestTitle: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  requestRef: { color: Academic.primary, fontSize: 13, fontWeight: '600' },
+  requestTitle: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   requestDate: { color: Academic.textSecondary, fontSize: 13 },
+  filterCard: { gap: Spacing.two, padding: Spacing.three },
+  searchFieldShell: {
+    minHeight: 46,
+    borderRadius: 13,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderColor: Academic.border,
+    backgroundColor: Academic.muted,
+  },
+  searchInput: { flex: 1, minWidth: 0, fontSize: 14, paddingVertical: 9 },
+  requestFilterToolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: Spacing.two },
+  requestFilterSelect: { minWidth: 146, flexGrow: 1, gap: 4 },
+  requestFilterLabel: { fontSize: 11, fontWeight: '500', paddingHorizontal: 2 },
+  requestFilterControl: { minHeight: 38, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  requestFilterControlText: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: '500' },
+  requestResetButton: { minHeight: 38, borderRadius: 10, borderWidth: 1, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  requestResetDisabled: { opacity: 0.42 },
+  requestResetText: { fontSize: 12, fontWeight: '500' },
+  requestFilterMenu: { borderWidth: 1, borderRadius: 12, padding: Spacing.two, gap: 7 },
+  requestFilterMenuLabel: { fontSize: 11, fontWeight: '500', paddingHorizontal: 2 },
+  requestFilterOptions: { gap: 7 },
+  requestFilterOption: { minHeight: 32, paddingHorizontal: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  requestFilterOptionText: { fontSize: 11, fontWeight: '500' },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  filterLabel: { fontSize: 12, fontWeight: '500', marginRight: 2 },
+  filterChip: { minHeight: 32, paddingHorizontal: 11, borderRadius: 999, justifyContent: 'center' },
+  filterChipText: { fontSize: 12, fontWeight: '500' },
+  clearFilterButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 5 },
+  clearFilterText: { fontSize: 12, fontWeight: '500' },
   loader: { marginTop: Spacing.four },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   choiceChip: {
@@ -619,7 +820,7 @@ const styles = StyleSheet.create({
     borderColor: Academic.border,
   },
   choiceChipActive: { backgroundColor: Academic.primary, borderColor: Academic.primary },
-  choiceChipText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '800' },
+  choiceChipText: { color: Academic.textSecondary, fontSize: 13, fontWeight: '500' },
   choiceChipTextActive: { color: '#FFFFFF' },
   textarea: {
     minHeight: 150,
@@ -633,6 +834,8 @@ const styles = StyleSheet.create({
     borderColor: Academic.border,
   },
   charCount: { color: Academic.textSecondary, fontSize: 12, textAlign: 'right' },
+  cancelButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  cancelButtonText: { fontSize: 14, fontWeight: '500' },
   submitButton: {
     height: 52,
     borderRadius: 16,
@@ -640,11 +843,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.primary,
   },
-  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  submitButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   errorBox: {
     borderRadius: 14,
     padding: 12,
     backgroundColor: Academic.errorBg,
   },
-  errorText: { color: Academic.error, fontSize: 13, fontWeight: '700' },
+  errorText: { color: Academic.error, fontSize: 13, fontWeight: '500' },
 });

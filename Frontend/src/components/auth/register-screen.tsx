@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Academic, AcademicIcon, ActionButton, AppBackdrop, SurfaceCard, TextField } from '@/components/ui/academic-ui';
+import { Academic, AcademicIcon, ActionButton, AppBackdrop, StatusBadge, SurfaceCard, TextField } from '@/components/ui/academic-ui';
 import { Fonts, Radius, Spacing, TypeScale } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { useAppTheme } from '@/context/theme';
@@ -113,10 +113,15 @@ export default function RegisterScreen({ onNavigateToLogin, onChangeAccountType 
               />
             </View>
             <Text style={[styles.formTitle, { color: colors.navy }]}>Create Account</Text>
-            <Text style={[styles.formSub, { color: colors.textSecondary }]}>CAS Assist accounts are for NEU institutional users.</Text>
+            <Text style={[styles.formSub, { color: colors.textSecondary }]}>Self-registration is open to CAS students only.</Text>
           </View>
 
           <SurfaceCard style={styles.card}>
+            <StatusBadge label="Student self-registration" tone="blue" />
+            <View style={[styles.rulesBox, { backgroundColor: colors.softBlue, borderColor: colors.border }]}>
+              <Text style={[styles.rulesTitle, { color: colors.navy }]}>Before you begin</Text>
+              <Text style={[styles.rulesText, { color: colors.textSecondary }]}>Use your NEU email, official student number, and a password with at least 8 characters.</Text>
+            </View>
             {error ? <View style={[styles.errorBox, { backgroundColor: colors.errorBg }]}><Text style={[styles.errorText, { color: colors.error }]}>{error}</Text></View> : null}
 
             <TextField
@@ -162,7 +167,11 @@ export default function RegisterScreen({ onNavigateToLogin, onChangeAccountType 
               secureTextEntry={!showPass}
               editable={!loading}
               trailing={
-                <Pressable onPress={() => setShowPass(value => !value)} hitSlop={8}>
+                <Pressable
+                  onPress={() => setShowPass(value => !value)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPass ? 'Hide password' : 'Show password'}>
                   <Text style={[styles.showText, { color: colors.primary }]}>{showPass ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               }
@@ -179,7 +188,11 @@ export default function RegisterScreen({ onNavigateToLogin, onChangeAccountType 
               editable={!loading}
               error={confirm.length > 0 && password !== confirm ? 'Passwords do not match' : undefined}
               trailing={
-                <Pressable onPress={() => setShowConfirm(value => !value)} hitSlop={8}>
+                <Pressable
+                  onPress={() => setShowConfirm(value => !value)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={showConfirm ? 'Hide confirmation password' : 'Show confirmation password'}>
                   <Text style={[styles.showText, { color: colors.primary }]}>{showConfirm ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               }
@@ -226,16 +239,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.60)',
     boxShadow: '0 18px 44px rgba(11, 125, 119, 0.24)',
   },
-  formTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.title, fontWeight: '700', letterSpacing: -0.45 },
+  formTitle: { color: Academic.navy, fontFamily: Fonts.sans, fontSize: TypeScale.title, fontWeight: '600', letterSpacing: -0.45 },
   formSub: { color: Academic.textSecondary, fontSize: TypeScale.body, lineHeight: 20, textAlign: 'center' },
   card: { width: '100%', maxWidth: 520, alignSelf: 'center', gap: 15, padding: Spacing.four },
+  rulesBox: { borderRadius: 14, borderWidth: 1, padding: 12, gap: 3 },
+  rulesTitle: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '600' },
+  rulesText: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17 },
   errorBox: { borderRadius: 12, padding: 11, backgroundColor: Academic.errorBg },
   errorText: { color: Academic.error, fontSize: TypeScale.body, fontWeight: '600' },
-  showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '700' },
+  showText: { color: Academic.primary, fontSize: TypeScale.body, fontWeight: '500' },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
   footerText: { color: Academic.textSecondary, fontSize: 14 },
   footerDivider: { color: Academic.border, fontSize: 14, marginHorizontal: 3 },
-  footerLink: { color: Academic.primary, fontSize: 14, fontWeight: '700' },
+  footerLink: { color: Academic.primary, fontSize: 14, fontWeight: '500' },
   confirmedContainer: {
     flex: 1,
     alignItems: 'center',
@@ -251,6 +267,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.softBlue,
   },
-  confirmedTitle: { color: Academic.navy, fontSize: TypeScale.title, fontWeight: '700', textAlign: 'center' },
+  confirmedTitle: { color: Academic.navy, fontSize: TypeScale.title, fontWeight: '600', textAlign: 'center' },
   confirmedBody: { color: Academic.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
 });

@@ -43,11 +43,20 @@ const ROLE_OPTIONS = [
   {
     category: 'institutional' as const,
     eyebrow: 'Institutional services',
-    title: 'I am a CAS Staff/Faculty/Admin',
+    title: 'I am a CAS Staff / Faculty / Admin',
     description: 'Access authorized faculty, staff, and department management services.',
     icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' } as AcademicIconName,
     accent: 'success' as const,
   },
+];
+
+const SERVICE_CAPABILITIES = [
+  { label: 'Assistance Requests', icon: { ios: 'doc.text', android: 'assignment', web: 'assignment' } as AcademicIconName },
+  { label: 'Live Queue Numbers', icon: { ios: 'list.number', android: 'format_list_bulleted', web: 'format_list_bulleted' } as AcademicIconName },
+  { label: 'Document Processing', icon: { ios: 'doc.text', android: 'description', web: 'description' } as AcademicIconName },
+  { label: 'Appointments', icon: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' } as AcademicIconName },
+  { label: 'Classroom Changes', icon: { ios: 'location', android: 'location_on', web: 'location_on' } as AcademicIconName },
+  { label: 'AI Helpdesk', icon: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' } as AcademicIconName },
 ];
 
 function RoleOptionCard({
@@ -132,8 +141,13 @@ function RoleOptionCard({
             <Text style={[styles.roleTitle, { color: colors.navy }]}>{title}</Text>
             <Text style={[styles.roleDescription, { color: colors.textSecondary }]}>{description}</Text>
           </View>
-          <View style={[styles.roleAction, { backgroundColor: hovered || focused ? colors.primary : colors.backgroundSelected }]}>
-            <AcademicIcon name={{ ios: 'arrow.up.right', android: 'chevron_right', web: 'chevron_right' }} size={20} color={hovered || focused ? '#FFFFFF' : colors.primary} />
+          <View style={styles.roleFooter}>
+            <Text style={[styles.roleCta, { color: hovered || focused ? colors.primary : colors.textSecondary }]}>
+              {isStudent ? 'Continue as student' : 'Continue as staff'}
+            </Text>
+            <View style={[styles.roleAction, { backgroundColor: hovered || focused ? colors.primary : colors.backgroundSelected }]}>
+              <AcademicIcon name={{ ios: 'arrow.up.right', android: 'chevron_right', web: 'chevron_right' }} size={20} color={hovered || focused ? '#FFFFFF' : colors.primary} animated={false} />
+            </View>
           </View>
         </SurfaceCard>
       </Pressable>
@@ -175,10 +189,10 @@ export default function AuthLandingScreen({ onSelectCategory }: Props) {
             <View style={styles.heroCopy}>
               <StatusBadge label="NEU academic services portal" tone="blue" />
               <Text style={[styles.welcomeTitle, { color: colors.navy }, wide && styles.welcomeTitleWide]}>
-                Welcome to your CAS workspace.
+                CAS-ASSIST <Text style={{ color: colors.primary }}>2.0</Text>
               </Text>
               <Text style={[styles.welcomeBody, { color: colors.textSecondary }]}>
-                Choose the account type that best describes your work with the College of Arts and Sciences.
+                The College of Arts and Sciences assistance, operations, and academic services platform — one desk for requests, queue numbers, documents, appointments, classroom-change notices, and an AI helpdesk grounded in approved CAS knowledge.
               </Text>
             </View>
 
@@ -193,10 +207,29 @@ export default function AuthLandingScreen({ onSelectCategory }: Props) {
               ))}
             </View>
 
+            <SurfaceCard style={styles.capabilitiesCard}>
+              <View style={styles.capabilitiesHeader}>
+                <View style={styles.capabilitiesCopy}>
+                  <Text style={[styles.capabilitiesEyebrow, { color: colors.textSecondary }]}>Inside the platform</Text>
+                  <Text style={[styles.capabilitiesTitle, { color: colors.navy }]}>One academic service workspace</Text>
+                </View>
+                <StatusBadge label="Role-based access" tone="muted" />
+              </View>
+              <View style={styles.capabilityGrid}>
+                {SERVICE_CAPABILITIES.map(capability => (
+                  <View key={capability.label} style={[styles.capabilityItem, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
+                    <AcademicIcon name={capability.icon} size={16} color={colors.primary} animated={false} />
+                    <Text style={[styles.capabilityLabel, { color: colors.textSecondary }]}>{capability.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </SurfaceCard>
+
             <View style={[styles.trustNote, { borderTopColor: colors.border }]}>
               <AcademicIcon name={{ ios: 'checkmark.shield.fill', android: 'verified_user', web: 'verified_user' }} size={17} color={colors.primary} />
               <Text style={[styles.trustText, { color: colors.textSecondary }]}>Your account role is verified securely after sign-in.</Text>
             </View>
+            <Text style={[styles.footerNote, { color: colors.textTertiary }]}>CAS Assist · College of Arts and Sciences · New Era University</Text>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -226,24 +259,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadows.card,
   },
-  brandName: { fontFamily: Fonts.sans, fontSize: 19, lineHeight: 24, fontWeight: '800', letterSpacing: -0.3 },
+  brandName: { fontFamily: Fonts.sans, fontSize: 19, lineHeight: 24, fontWeight: '600', letterSpacing: -0.3 },
   brandMeta: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17, fontWeight: '600' },
   heroCopy: { gap: Spacing.two, maxWidth: 680 },
-  welcomeTitle: { fontFamily: Fonts.sans, fontSize: 36, lineHeight: 42, fontWeight: '800', letterSpacing: -1.1 },
+  welcomeTitle: { fontFamily: Fonts.sans, fontSize: 36, lineHeight: 42, fontWeight: '600', letterSpacing: -0.8 },
   welcomeTitleWide: { fontSize: 48, lineHeight: 54, maxWidth: 760 },
   welcomeBody: { fontFamily: Fonts.sans, fontSize: 16, lineHeight: 24, maxWidth: 620 },
   roleGrid: { gap: Spacing.three },
-  roleGridWide: { flexDirection: 'row', alignItems: 'stretch' },
-  roleCardShell: { flex: 1, ...Shadows.card },
-  rolePressable: { borderRadius: Radius.card },
-  roleCard: { minHeight: 214, flex: 1, justifyContent: 'space-between', gap: Spacing.three, padding: Spacing.four },
+  roleGridWide: { flexDirection: 'row', alignItems: 'stretch', gap: Spacing.three },
+  roleCardShell: { flex: 1, minWidth: 0, ...Shadows.card },
+  rolePressable: { flex: 1, borderRadius: Radius.card },
+  roleCard: { minHeight: 220, flex: 1, justifyContent: 'space-between', gap: Spacing.three, padding: Spacing.four },
   roleIcon: { width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   roleCopy: { flex: 1, gap: Spacing.one },
-  roleEyebrow: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
-  roleTitle: { fontFamily: Fonts.sans, fontSize: 21, lineHeight: 27, fontWeight: '800', letterSpacing: -0.35 },
+  roleEyebrow: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  roleTitle: { fontFamily: Fonts.sans, fontSize: 21, lineHeight: 27, fontWeight: '600', letterSpacing: -0.35 },
   roleDescription: { fontFamily: Fonts.sans, fontSize: TypeScale.control, lineHeight: 22 },
-  roleAction: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' },
+  roleFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  roleCta: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '600' },
+  roleAction: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  capabilitiesCard: { gap: Spacing.three, padding: Spacing.three },
+  capabilitiesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, flexWrap: 'wrap' },
+  capabilitiesCopy: { gap: 2, flex: 1, minWidth: 180 },
+  capabilitiesEyebrow: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '600', letterSpacing: 1.3, textTransform: 'uppercase' },
+  capabilitiesTitle: { fontFamily: Fonts.sans, fontSize: 20, lineHeight: 26, fontWeight: '600' },
+  capabilityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  capabilityItem: { flexGrow: 1, flexBasis: 210, minWidth: 0, minHeight: 40, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  capabilityLabel: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, fontWeight: '500' },
   pressed: { opacity: 0.9 },
   trustNote: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.two, paddingTop: Spacing.three, borderTopWidth: 1 },
   trustText: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17, textAlign: 'center' },
+  footerNote: { fontFamily: Fonts.sans, fontSize: 11, lineHeight: 16, textAlign: 'center' },
 });

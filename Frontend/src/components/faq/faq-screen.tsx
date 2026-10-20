@@ -41,6 +41,7 @@ function FaqContent() {
   const colors = useTheme();
   const [articles, setArticles] = useState<FaqArticle[]>([]);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,10 +71,15 @@ function FaqContent() {
 
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return articles;
-    return articles.filter(article => [article.title, article.answer, article.category, ...article.keywords]
-      .some(value => value.toLowerCase().includes(query)));
-  }, [articles, search]);
+    return articles.filter(article => {
+      const matchesCategory = category === 'all' || article.category === category;
+      const matchesSearch = !query || [article.title, article.answer, article.category, ...article.keywords]
+        .some(value => value.toLowerCase().includes(query));
+      return matchesCategory && matchesSearch;
+    });
+  }, [articles, category, search]);
+
+  const categories = useMemo(() => Array.from(new Set(articles.map(article => article.category))).sort(), [articles]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -90,7 +96,7 @@ function FaqContent() {
           <Text style={[styles.title, { color: colors.navy }]}>Frequently Asked Questions</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Approved answers used by the AI Helpdesk</Text>
         </View>
-        <StatusBadge label={`${articles.length} answers`} tone="success" />
+        <StatusBadge label={`${visible.length} of ${articles.length} answers`} tone="success" />
       </View>
 
       <ScrollView
@@ -112,6 +118,22 @@ function FaqContent() {
             />
           </View>
 
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRail}>
+            {['all', ...categories].map(item => {
+              const active = category === item;
+              return (
+                <Pressable
+                  key={item}
+                  onPress={() => setCategory(item)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.categoryChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.categoryChipActive]}>
+                  <Text style={[styles.categoryText, { color: active ? '#FFFFFF' : colors.textSecondary }]}>{item === 'all' ? 'All categories' : formatCategory(item)}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
           <View style={[styles.scopeNotice, { backgroundColor: colors.successBg }]}>
             <AcademicIcon name={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }} color={colors.success} size={18} />
             <Text style={[styles.scopeText, { color: colors.navy }]}>These answers cover CAS Assist workflows. Official fees, requirements, deadlines, and decisions must come from an approved institutional source.</Text>
@@ -122,7 +144,7 @@ function FaqContent() {
           ) : error ? (
             <EmptyState title="FAQs unavailable" message={error} icon={{ ios: 'exclamationmark.triangle', android: 'priority_high', web: 'priority_high' }} />
           ) : visible.length === 0 ? (
-            <EmptyState title="No matching FAQ" message="Try a broader word such as advising, documents, schedules, or account." icon={{ ios: 'questionmark.circle', android: 'info', web: 'info' }} />
+            <EmptyState title="No matching FAQ" message="Try a broader search or choose another category." icon={{ ios: 'questionmark.circle', android: 'info', web: 'info' }} />
           ) : visible.map(article => {
             const open = expanded === article.id;
             return (
@@ -168,19 +190,23 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Academic.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Spacing.three, paddingTop: Spacing.three, paddingBottom: 12 },
   headerCopy: { flex: 1, gap: 2 },
-  title: { color: Academic.navy, fontSize: 20, fontWeight: '900' },
-  subtitle: { color: Academic.textSecondary, fontSize: 12, fontWeight: '700' },
+  title: { color: Academic.navy, fontSize: 20, fontWeight: '600' },
+  subtitle: { color: Academic.textSecondary, fontSize: 12, fontWeight: '400' },
   scroll: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.five },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: Spacing.three },
   searchBox: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 14, borderRadius: 16, backgroundColor: Academic.card, borderWidth: 1, borderColor: Academic.border },
   searchInput: { flex: 1, minHeight: 48, color: Academic.navy, fontSize: 14 },
+  categoryRail: { gap: Spacing.two, paddingRight: Spacing.three },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 },
+  categoryChipActive: { backgroundColor: Academic.primary },
+  categoryText: { fontSize: 12, fontWeight: '500' },
   scopeNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, padding: 12, borderRadius: 15, backgroundColor: Academic.successBg },
   scopeText: { flex: 1, color: Academic.navy, fontSize: 12, lineHeight: 18 },
   loader: { paddingVertical: Spacing.five },
   faqCard: { gap: Spacing.three },
   questionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   questionCopy: { flex: 1, alignItems: 'flex-start', gap: 8 },
-  question: { color: Academic.navy, fontSize: 15, lineHeight: 21, fontWeight: '900' },
+  question: { color: Academic.navy, fontSize: 15, lineHeight: 21, fontWeight: '600' },
   answerBox: { paddingTop: Spacing.three, borderTopWidth: 1, borderTopColor: Academic.border },
   answer: { color: Academic.textSecondary, fontSize: 14, lineHeight: 21 },
 });

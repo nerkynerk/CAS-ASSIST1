@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
   // Must be above AnimatedSplashOverlay (zIndex 1000) on native,
   // and above everything on web.
   authContainer: { flex: 1, backgroundColor: Academic.background },
-  configTitle: { color: Academic.navy, fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  configTitle: { color: Academic.navy, fontSize: 22, fontWeight: '600', textAlign: 'center' },
   configMessage: { color: Academic.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
   configButton: {
     minWidth: 180,
@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: Academic.primary,
   },
-  configButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  configButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   loading: {
     zIndex: 1001,
     elevation: 1001,
@@ -56,20 +56,22 @@ function PushSetup() {
 function AuthenticatedWorkspace({
   userId,
   onSignOut,
+  resetRouteOnAuth,
 }: {
   userId: string;
   onSignOut: () => Promise<void>;
+  resetRouteOnAuth: boolean;
 }) {
   const router = useRouter();
   const resetUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // A new authenticated identity must never inherit the previous user's
-    // active tab or nested route (for example, /profile).
-    if (resetUserRef.current === userId) return;
+    // Reset only after a subsequent sign-in. On the initial session restore,
+    // preserve a valid browser deep link such as /ticket/:id.
+    if (!resetRouteOnAuth || resetUserRef.current === userId) return;
     resetUserRef.current = userId;
     router.replace('/');
-  }, [router, userId]);
+  }, [resetRouteOnAuth, router, userId]);
 
   return (
     <AuthenticatedErrorBoundary onSignOut={onSignOut}>
@@ -85,11 +87,24 @@ function AppGate() {
   const [authView, setAuthView] = useState<AuthView>('landing');
   const [loginCategory, setLoginCategory] = useState<LoginCategory>('student');
   const hadSessionRef = useRef(false);
+  const hasAuthenticatedSessionRef = useRef(false);
+  const previousSessionUserIdRef = useRef<string | null>(null);
+  const [resetRouteOnAuth, setResetRouteOnAuth] = useState(false);
 
   useEffect(() => {
     if (!session && hadSessionRef.current) {
       setAuthView('landing');
       setLoginCategory('student');
+    }
+    const nextUserId = session?.user.id ?? null;
+    if (nextUserId !== previousSessionUserIdRef.current) {
+      if (nextUserId) {
+        setResetRouteOnAuth(hasAuthenticatedSessionRef.current);
+        hasAuthenticatedSessionRef.current = true;
+      } else {
+        setResetRouteOnAuth(false);
+      }
+      previousSessionUserIdRef.current = nextUserId;
     }
     hadSessionRef.current = Boolean(session);
   }, [session]);
@@ -119,7 +134,7 @@ function AppGate() {
   }
 
   if (session && profile) {
-    return <AuthenticatedWorkspace userId={session.user.id} onSignOut={signOut} />;
+    return <AuthenticatedWorkspace userId={session.user.id} onSignOut={signOut} resetRouteOnAuth={resetRouteOnAuth} />;
   }
 
   return (

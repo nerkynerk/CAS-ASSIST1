@@ -133,6 +133,34 @@ export default function AdminDashboardHome() {
           </>
         )}
 
+        <View style={styles.snapshotGrid}>
+          <SurfaceCard style={styles.snapshotCard}>
+            <SectionHeader title="Service activity" />
+            <View style={styles.snapshotRows}>
+              <View style={[styles.snapshotRow, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.snapshotLabel, { color: theme.textSecondary }]}>Open requests</Text>
+                <Text style={[styles.snapshotValue, { color: theme.navy }]}>{stats.openTickets}</Text>
+              </View>
+              <View style={[styles.snapshotRow, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.snapshotLabel, { color: theme.textSecondary }]}>Action required</Text>
+                <Text style={[styles.snapshotValue, { color: theme.navy }]}>{stats.actionReq}</Text>
+              </View>
+              <View style={styles.snapshotRow}>
+                <Text style={[styles.snapshotLabel, { color: theme.textSecondary }]}>Published updates</Text>
+                <Text style={[styles.snapshotValue, { color: theme.navy }]}>{stats.announcements}</Text>
+              </View>
+            </View>
+          </SurfaceCard>
+          <SurfaceCard style={styles.snapshotCard}>
+            <SectionHeader title="Account overview" />
+            <Text style={[styles.snapshotDescription, { color: theme.textSecondary }]}>The account registry is the source of truth for student, faculty, staff, and administrator access.</Text>
+            <View style={[styles.accountCallout, { backgroundColor: theme.softBlue }]}>
+              <Text style={[styles.accountCalloutValue, { color: theme.primary }]}>{stats.users}</Text>
+              <Text style={[styles.accountCalloutLabel, { color: theme.textSecondary }]}>registered accounts</Text>
+            </View>
+          </SurfaceCard>
+        </View>
+
         <SectionHeader title="Admin Tools" action="Open panel" onAction={() => router.navigate('/admin')} />
         <View style={dashboardActionGridStyles.grid}>
             <DashboardActionCard
@@ -166,6 +194,14 @@ export default function AdminDashboardHome() {
             icon={{ ios: 'chart.bar.xaxis', android: 'analytics', web: 'analytics' }}
             onPress={() => router.navigate('/analytics')}
           />
+          {profile?.role === 'super_admin' ? (
+            <DashboardActionCard
+              label="Audit History"
+              caption="Review protected ticket events."
+              icon={{ ios: 'checkmark.shield', android: 'verified_user', web: 'verified_user' }}
+              onPress={() => router.navigate({ pathname: '/admin', params: { tab: 'audit' } })}
+            />
+          ) : null}
         </View>
 
         <SectionHeader title="Recently Registered" />
@@ -208,6 +244,16 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
   loader: { marginTop: Spacing.four },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
+  snapshotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
+  snapshotCard: { flexGrow: 1, flexBasis: 320, minWidth: 0, gap: Spacing.three },
+  snapshotRows: { gap: 0 },
+  snapshotRow: { minHeight: 42, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  snapshotLabel: { fontSize: 13, fontWeight: '600' },
+  snapshotValue: { fontSize: 20, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  snapshotDescription: { fontSize: 13, lineHeight: 19 },
+  accountCallout: { minHeight: 58, borderRadius: 15, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  accountCalloutValue: { fontSize: 28, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  accountCalloutLabel: { fontSize: 13, fontWeight: '500' },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,9 +267,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.softBlue,
   },
-  userInitial: { color: Academic.primary, fontSize: 18, fontWeight: '900' },
+  userInitial: { color: Academic.primary, fontSize: 18, fontWeight: '600' },
   userInfo: { flex: 1, gap: 2 },
-  userName: { color: Academic.navy, fontSize: 15, fontWeight: '900' },
+  userName: { color: Academic.navy, fontSize: 15, fontWeight: '600' },
   userEmail: { color: Academic.textSecondary, fontSize: 12 },
-  userDate: { color: Academic.textSecondary, fontSize: 11, fontWeight: '700' },
+  userDate: { color: Academic.textSecondary, fontSize: 11, fontWeight: '400' },
 });

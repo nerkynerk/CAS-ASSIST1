@@ -485,6 +485,12 @@ export default function StudentDashboard() {
             icon={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
             onPress={() => router.navigate('/chatbot')}
           />
+          <DashboardActionCard
+            label="Profile"
+            caption="Review your account and appearance settings."
+            icon={{ ios: 'person', android: 'person', web: 'person' }}
+            onPress={() => router.navigate('/profile')}
+          />
         </View>
 
         <SectionHeader title="Recent Updates" action="See all" onAction={() => router.navigate('/explore')} />
@@ -574,8 +580,8 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.five,
   },
   heroCopy: { flex: 1, gap: 8 },
-  heroLabel: { color: '#9FE4DD', fontSize: 12, fontWeight: '700', letterSpacing: 0.45, textTransform: 'uppercase' },
-  heroTitle: { color: '#FFFFFF', fontSize: 30, lineHeight: 36, fontWeight: '700', letterSpacing: -0.65 },
+  heroLabel: { color: '#9FE4DD', fontSize: 12, fontWeight: '500', letterSpacing: 0.45, textTransform: 'uppercase' },
+  heroTitle: { color: '#FFFFFF', fontSize: 30, lineHeight: 36, fontWeight: '600', letterSpacing: -0.65 },
   heroSubtitle: { color: '#D4E5E1', fontSize: 15, lineHeight: 22 },
   readOnlyBadge: {
     alignSelf: 'flex-start',
@@ -585,7 +591,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
-  readOnlyText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  readOnlyText: { color: '#FFFFFF', fontSize: 12, fontWeight: '500' },
   notificationButton: {
     width: 50,
     height: 50,
@@ -603,15 +609,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  sectionTitle: { color: NAVY, fontSize: 18, fontWeight: '800' },
-  sectionAction: { color: PRIMARY, fontSize: 14, fontWeight: '700' },
+  sectionTitle: { color: NAVY, fontSize: 18, fontWeight: '600' },
+  sectionAction: { color: PRIMARY, fontSize: 14, fontWeight: '500' },
   newBadge: {
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 999,
     backgroundColor: '#FFE4E6',
   },
-  newBadgeText: { color: '#EF233C', fontSize: 12, fontWeight: '800' },
+  newBadgeText: { color: '#EF233C', fontSize: 12, fontWeight: '600' },
   requestRail: { gap: Spacing.three, paddingRight: Spacing.three },
   requestCard: {
     width: 238,
@@ -632,13 +638,13 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: BrandColors.muted,
   },
-  referenceText: { color: '#60708B', fontSize: 12, fontWeight: '800' },
+  referenceText: { color: '#60708B', fontSize: 12, fontWeight: '500' },
   statusBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
-  statusBadgeText: { fontSize: 10, fontWeight: '900' },
-  requestTitle: { color: NAVY, fontSize: 16, fontWeight: '800', lineHeight: 21 },
+  statusBadgeText: { fontSize: 10, fontWeight: '500' },
+  requestTitle: { color: NAVY, fontSize: 16, fontWeight: '600', lineHeight: 21 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { color: MUTED, fontSize: 13, flex: 1 },
-  priorityText: { color: '#A0AEC0', fontSize: 11, fontWeight: '700' },
+  priorityText: { color: '#A0AEC0', fontSize: 11, fontWeight: '400' },
   loadingCard: {
     height: 124,
     borderRadius: 16,
@@ -656,7 +662,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     gap: 4,
   },
-  emptyTitle: { color: NAVY, fontSize: 15, fontWeight: '800' },
+  emptyTitle: { color: NAVY, fontSize: 15, fontWeight: '600' },
   emptyText: { color: MUTED, fontSize: 13, lineHeight: 18 },
   roomCard: {
     borderRadius: 16,
@@ -679,7 +685,7 @@ const styles = StyleSheet.create({
     backgroundColor: SOFT_BLUE,
   },
   roomHeaderText: { flex: 1, gap: 2 },
-  roomTitle: { color: NAVY, fontSize: 16, fontWeight: '800' },
+  roomTitle: { color: NAVY, fontSize: 16, fontWeight: '600' },
   roomTime: { color: '#8EA0BA', fontSize: 12, fontWeight: '600' },
   roomPath: {
     minHeight: 46,
@@ -700,7 +706,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: PRIMARY,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '500',
     textAlign: 'right',
   },
   roomNote: { color: MUTED, fontSize: 12, lineHeight: 17 },
@@ -711,7 +717,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: PRIMARY,
   },
-  ackButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  ackButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
   ackDone: {
     minHeight: 40,
     borderRadius: 10,
@@ -723,7 +729,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#BFE8CC',
   },
-  ackDoneText: { color: GREEN, fontSize: 14, fontWeight: '800' },
+  ackDoneText: { color: GREEN, fontSize: 14, fontWeight: '500' },
   secondaryActions: {
     flexDirection: 'row',
     gap: Spacing.two,
@@ -742,7 +748,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
   },
-  actionChipText: { color: NAVY, fontSize: 14, fontWeight: '800' },
+  actionChipText: { color: NAVY, fontSize: 14, fontWeight: '500' },
   announcementCard: {
     borderRadius: 16,
     padding: Spacing.three,
@@ -752,7 +758,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
   },
   announcementTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  announcementTitle: { color: NAVY, fontSize: 15, fontWeight: '800', flex: 1 },
+  announcementTitle: { color: NAVY, fontSize: 15, fontWeight: '600', flex: 1 },
   announcementBody: { color: MUTED, fontSize: 13, lineHeight: 18 },
   announcementDate: { color: '#9AA8BC', fontSize: 11, fontWeight: '600' },
 });

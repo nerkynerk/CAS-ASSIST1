@@ -42,6 +42,6 @@ const styles = StyleSheet.create({
     padding: Spacing.five,
     backgroundColor: Academic.background,
   },
-  title: { color: Academic.navy, fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  title: { color: Academic.navy, fontSize: 22, fontWeight: '600', textAlign: 'center' },
   message: { color: Academic.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center' },
 });

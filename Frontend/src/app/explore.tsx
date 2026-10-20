@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,6 +35,8 @@ interface Announcement {
   title: string;
   body: string;
   pinned: boolean;
+  priority: string;
+  audience_roles: string[];
   publish_at: string;
   expires_at: string | null;
 }
@@ -48,7 +51,8 @@ interface RoomChange {
   effective_at: string;
 }
 
-type UpdateFilter = 'all' | 'room' | 'announcements' | 'academic';
+type UpdateFilter = 'all' | 'room' | 'announcements';
+type RoomStatusFilter = 'all' | 'pending' | 'acknowledged';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-PH', {
@@ -149,9 +153,17 @@ function AnnouncementCard({
             <Text style={[styles.announcementTitle, { color: colors.navy }]} numberOfLines={expanded ? undefined : 2}>{item.title}</Text>
             <Text style={[styles.announcementDate, { color: colors.textSecondary }]}>{formatDate(item.publish_at)}</Text>
           </View>
-          {item.pinned ? <StatusBadge label="Pinned" tone="warning" /> : null}
+          <View style={styles.announcementBadges}>
+            {item.priority !== 'normal' ? <StatusBadge label={item.priority} tone={item.priority === 'urgent' ? 'error' : 'warning'} /> : null}
+            {item.pinned ? <StatusBadge label="Pinned" tone="warning" /> : null}
+          </View>
         </View>
         <Text style={[styles.announcementBody, { color: colors.textSecondary }]} numberOfLines={expanded ? undefined : 3}>{item.body}</Text>
+        {item.audience_roles.length > 0 ? (
+          <Text style={[styles.announcementAudience, { color: colors.textSecondary }]} numberOfLines={1}>
+            For {item.audience_roles.map(role => role === 'super_admin' ? 'Super admins' : `${role.charAt(0).toUpperCase()}${role.slice(1)}s`).join(', ')}
+          </Text>
+        ) : null}
         <Text style={[styles.expandText, { color: colors.primary }]}>{expanded ? 'Show less' : 'Read full announcement'}</Text>
       </SurfaceCard>
     </Pressable>
@@ -163,6 +175,9 @@ export default function UpdatesScreen() {
   const { profile } = useAuth();
   const colors = useTheme();
   const [filter, setFilter] = useState<UpdateFilter>('all');
+  const [roomStatus, setRoomStatus] = useState<RoomStatusFilter>('all');
+  const [announcementSearch, setAnnouncementSearch] = useState('');
+  const [announcementSort, setAnnouncementSort] = useState<'newest' | 'oldest'>('newest');
   const [expandedAnnouncementId, setExpandedAnnouncementId] = useState<string | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [roomChanges, setRoomChanges] = useState<RoomChange[]>([]);
@@ -171,6 +186,7 @@ export default function UpdatesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ackError, setAckError] = useState<string | null>(null);
   const [liveTag, setLiveTag] = useState(false);
 
   const fetchRef = useRef<() => Promise<void>>(async () => {});
@@ -183,7 +199,7 @@ export default function UpdatesScreen() {
     const now = new Date().toISOString();
     const { data, error: dbErr } = await supabase
       .from('announcements')
-      .select('id, title, body, pinned, publish_at, expires_at')
+      .select('id, title, body, pinned, priority, audience_roles, publish_at, expires_at')
       .eq('state', 'published')
       .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order('pinned', { ascending: false })
@@ -237,12 +253,15 @@ export default function UpdatesScreen() {
 
   async function handleAcknowledge(id: string) {
     if (!profile?.id || acknowledgingId) return;
+    setAckError(null);
     setAcknowledgingId(id);
     const { error: rpcError } = await supabase.rpc('acknowledge_room_change', {
       p_spatial_log_id: id,
     });
     if (!rpcError) {
       setAcknowledgedIds(prev => new Set([...prev, id]));
+    } else {
+      setAckError('We could not record that acknowledgement. Please try again.');
     }
     setAcknowledgingId(null);
   }
@@ -287,12 +306,26 @@ export default function UpdatesScreen() {
   }, [isStudent, load]);
 
   const showRoom = isStudent && (filter === 'all' || filter === 'room');
-  const showAnnouncements = filter === 'all' || filter === 'announcements' || filter === 'academic';
+  const showAnnouncements = filter === 'all' || filter === 'announcements';
+  const visibleRoomChanges = useMemo(() => roomChanges.filter(change => {
+    const acknowledged = acknowledgedIds.has(change.id);
+    return roomStatus === 'all' || (roomStatus === 'acknowledged' ? acknowledged : !acknowledged);
+  }), [acknowledgedIds, roomChanges, roomStatus]);
+  const visibleAnnouncements = useMemo(() => {
+    const query = announcementSearch.trim().toLowerCase();
+    return announcements
+      .filter(item => !query || `${item.title} ${item.body} ${item.audience_roles.join(' ')}`.toLowerCase().includes(query))
+      .sort((left, right) => {
+        const pinnedOrder = Number(right.pinned) - Number(left.pinned);
+        if (pinnedOrder !== 0) return pinnedOrder;
+        const direction = announcementSort === 'newest' ? -1 : 1;
+        return direction * (new Date(left.publish_at).getTime() - new Date(right.publish_at).getTime());
+      });
+  }, [announcementSearch, announcementSort, announcements]);
   const filters: { id: UpdateFilter; label: string }[] = [
     { id: 'all', label: 'All' },
     ...(isStudent ? [{ id: 'room' as const, label: 'Room Changes' }] : []),
     { id: 'announcements', label: 'Announcements' },
-    { id: 'academic', label: 'Academic' },
   ];
 
   return (
@@ -339,6 +372,57 @@ export default function UpdatesScreen() {
           })}
         </ScrollView>
 
+        {showRoom ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+            {([
+              ['all', 'All room changes'],
+              ['pending', 'Awaiting acknowledgement'],
+              ['acknowledged', 'Acknowledged'],
+            ] as const).map(([value, label]) => {
+              const active = roomStatus === value;
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => setRoomStatus(value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.filterChip, { backgroundColor: active ? colors.softBlue : colors.muted }, active && styles.filterChipSecondaryActive]}>
+                  <Text style={[styles.filterText, { color: active ? colors.primary : colors.textSecondary }, active && styles.filterTextActiveSecondary]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        {showAnnouncements ? (
+          <View style={styles.announcementToolbar}>
+            <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <AcademicIcon name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} color={colors.textSecondary} size={18} />
+              <TextInput
+                value={announcementSearch}
+                onChangeText={setAnnouncementSearch}
+                placeholder="Search announcements"
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.searchInput, { color: colors.text }]}
+                accessibilityLabel="Search announcements"
+              />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+              {(['newest', 'oldest'] as const).map(value => {
+                const active = announcementSort === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setAnnouncementSort(value)}
+                    style={[styles.filterChip, { backgroundColor: active ? colors.primary : colors.muted }, active && styles.filterChipActive]}>
+                    <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.textSecondary }, active && styles.filterTextActive]}>{value === 'newest' ? 'Newest first' : 'Oldest first'}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
+
         <View style={styles.metricsRow}>
           <MetricCard
             label="Announcements"
@@ -365,6 +449,11 @@ export default function UpdatesScreen() {
             <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           </View>
         ) : null}
+        {ackError ? (
+          <View style={[styles.errorBox, { backgroundColor: colors.errorBg }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{ackError}</Text>
+          </View>
+        ) : null}
 
         {loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -378,14 +467,14 @@ export default function UpdatesScreen() {
                     ? `${roomChanges.filter(change => !acknowledgedIds.has(change.id)).length} New`
                     : undefined}
                 />
-                {roomChanges.length === 0 ? (
+                {visibleRoomChanges.length === 0 ? (
                   <EmptyState
-                    title="No room changes"
-                    message="Relocation notices from the last 24 hours will appear here."
+                    title={roomChanges.length === 0 ? 'No room changes' : 'No matching room changes'}
+                    message={roomChanges.length === 0 ? 'Relocation notices from the last 24 hours will appear here.' : 'Try another acknowledgement filter.'}
                     icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
                   />
                 ) : (
-                  roomChanges.map(change => (
+                  visibleRoomChanges.map(change => (
                     <RoomUpdateCard
                       key={change.id}
                       item={change}
@@ -401,14 +490,14 @@ export default function UpdatesScreen() {
             {showAnnouncements ? (
               <BentoPanel size="wide" style={styles.bentoSection}>
                 <SectionHeader title="Announcements" />
-                {announcements.length === 0 ? (
+                {visibleAnnouncements.length === 0 ? (
                   <EmptyState
-                    title="No announcements"
-                    message="Official CAS academic updates will appear here."
+                    title={announcements.length === 0 ? 'No announcements' : 'No matching announcements'}
+                    message={announcements.length === 0 ? 'Official CAS academic updates will appear here.' : 'Try a different search term or sort order.'}
                     icon={{ ios: 'megaphone', android: 'campaign', web: 'campaign' }}
                   />
                 ) : (
-                  announcements.map(item => (
+                  visibleAnnouncements.map(item => (
                     <AnnouncementCard
                       key={item.id}
                       item={item}
@@ -444,7 +533,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '700', letterSpacing: -0.45 },
+  pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '600', letterSpacing: -0.45 },
   pageHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   createButton: {
     minHeight: 38,
@@ -455,8 +544,11 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: Academic.primary,
   },
-  createButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  createButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
   filterRail: { gap: Spacing.two, paddingRight: Spacing.three },
+  announcementToolbar: { gap: Spacing.two },
+  searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, borderRadius: 14, borderWidth: 1 },
+  searchInput: { flex: 1, minHeight: 46, fontSize: 14 },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   bentoSection: { gap: Spacing.three },
   filterChip: {
@@ -466,13 +558,15 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.muted,
   },
   filterChipActive: { backgroundColor: Academic.primary },
-  filterText: { color: Academic.textSecondary, fontSize: 14, fontWeight: '900' },
+  filterChipSecondaryActive: { borderWidth: 1, borderColor: Academic.primary },
+  filterText: { color: Academic.textSecondary, fontSize: 14, fontWeight: '500' },
   filterTextActive: { color: '#FFFFFF' },
+  filterTextActiveSecondary: { color: Academic.primary },
   loader: { marginTop: Spacing.four },
   roomCard: { gap: 13 },
   roomHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.two },
   roomTitleGroup: { flex: 1, gap: 2 },
-  roomTitle: { color: Academic.navy, fontSize: 16, fontWeight: '900' },
+  roomTitle: { color: Academic.navy, fontSize: 16, fontWeight: '600' },
   roomSub: { color: Academic.textSecondary, fontSize: 13 },
   roomCompare: {
     minHeight: 68,
@@ -488,10 +582,10 @@ const styles = StyleSheet.create({
   oldRoom: {
     color: '#8EA0B8',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '400',
     textDecorationLine: 'line-through',
   },
-  newRoom: { color: Academic.primary, fontSize: 16, fontWeight: '900' },
+  newRoom: { color: Academic.primary, fontSize: 16, fontWeight: '500' },
   pinBubble: {
     width: 36,
     height: 36,
@@ -509,7 +603,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Academic.primary,
   },
-  ackButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  ackButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
   ackState: {
     minHeight: 40,
     borderRadius: 10,
@@ -519,9 +613,10 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: Academic.successBg,
   },
-  ackStateText: { color: Academic.success, fontSize: 14, fontWeight: '900' },
+  ackStateText: { color: Academic.success, fontSize: 14, fontWeight: '500' },
   announcementCard: { gap: 12 },
   announcementHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  announcementBadges: { alignItems: 'flex-end', gap: 5 },
   announcementIcon: {
     width: 42,
     height: 42,
@@ -531,10 +626,11 @@ const styles = StyleSheet.create({
     backgroundColor: Academic.softBlue,
   },
   announcementText: { flex: 1, gap: 2 },
-  announcementTitle: { color: Academic.navy, fontSize: 16, fontWeight: '900' },
-  announcementDate: { color: Academic.textSecondary, fontSize: 12, fontWeight: '700' },
+  announcementTitle: { color: Academic.navy, fontSize: 16, fontWeight: '600' },
+  announcementDate: { color: Academic.textSecondary, fontSize: 12, fontWeight: '400' },
   announcementBody: { color: Academic.textSecondary, fontSize: 14, lineHeight: 20 },
-  expandText: { color: Academic.primary, fontSize: 12, fontWeight: '900', textAlign: 'right' },
+  announcementAudience: { color: Academic.textSecondary, fontSize: 12, fontWeight: '400' },
+  expandText: { color: Academic.primary, fontSize: 12, fontWeight: '500', textAlign: 'right' },
   errorBox: { borderRadius: 14, padding: 12, backgroundColor: Academic.errorBg },
-  errorText: { color: Academic.error, fontSize: 13, fontWeight: '800' },
+  errorText: { color: Academic.error, fontSize: 13, fontWeight: '500' },
 });
