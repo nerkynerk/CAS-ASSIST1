@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Academic,
   AcademicIcon,
+  ActionButton,
   AppBackdrop,
   EmptyState,
   IconButton,
@@ -524,13 +525,14 @@ function TicketsScreenContent() {
           label="Student services"
           title="My Requests"
           subtitle="Track your assistance queue and request history."
+          stackOnMobile
           right={(
-            <IconButton
+            <ActionButton
+              label="New Request"
               icon={{ ios: 'plus', android: 'add', web: 'add' }}
               onPress={() => setView('new')}
-              label="Create request"
-              bg="rgba(255,255,255,0.14)"
-              color="#FFFFFF"
+              accessibilityLabel="Create a new request"
+              style={styles.newRequestButton}
             />
           )}
         />
@@ -693,6 +695,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   pageTitle: { color: Academic.navy, fontSize: 26, fontWeight: '600', letterSpacing: -0.45 },
+  newRequestButton: { minWidth: 146, alignSelf: 'flex-start' },
   formIntro: { fontSize: 14, lineHeight: 21, marginTop: -Spacing.two },
   infoBanner: {
     borderRadius: 14,

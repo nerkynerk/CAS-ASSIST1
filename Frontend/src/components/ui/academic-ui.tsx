@@ -312,18 +312,22 @@ export function RoleHeroHeader({
   title,
   subtitle,
   right,
+  stackOnMobile = false,
 }: {
   label: string;
   title: string;
   subtitle: string;
   right?: ReactNode;
+  stackOnMobile?: boolean;
 }) {
   const { colors } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const shouldStack = stackOnMobile && width < 600;
 
   return (
     <Animated.View entering={HERO_ENTERING} style={[styles.hero, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={[styles.heroRule, { backgroundColor: colors.border }]} />
-      <View style={styles.heroContent}>
+      <View style={[styles.heroContent, shouldStack && styles.heroContentStacked]}>
         <View style={styles.heroCopy}>
           <View style={[styles.heroLabelPill, { backgroundColor: colors.softBlue }]}>
             <View style={[styles.heroLabelDot, { backgroundColor: colors.primary }]} />
@@ -722,6 +726,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     paddingBottom: Spacing.four,
   },
+  heroContentStacked: { flexDirection: 'column', alignItems: 'stretch' },
   heroCopy: { flex: 1, gap: 7 },
   heroLabelPill: {
     alignSelf: 'flex-start',
