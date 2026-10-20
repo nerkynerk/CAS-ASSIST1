@@ -231,7 +231,7 @@ function SystemAnalyticsContent() {
     const started = Date.now();
     const queueResult = apiGet<QueueAnalytics>(`/api/queue/analytics?windowHours=${windowDays * 24}`)
       .then(data => ({ data, error: null as string | null }))
-      .catch(() => ({ data: null, error: 'Queue analytics are unavailable.' }));
+      .catch(() => ({ data: null, error: 'Queue analytics are unavailable from the Operations API.' }));
     const [analyticsResult, healthResult, resolvedQueue] = await Promise.all([
       supabase.rpc('get_system_analytics', { p_window_days: windowDays }),
       checkApi(),
@@ -323,10 +323,10 @@ function SystemAnalyticsContent() {
   const largestRecentActivity = featureUsage.reduce((largest, item) => Math.max(largest, item.recent), 0);
 
   const serviceLabel = service.state === 'operational'
-    ? 'Operational'
+    ? 'Operations API operational'
     : service.state === 'not_configured'
-      ? 'Optional API not configured'
-      : 'API unavailable';
+      ? 'Operations API not configured'
+      : 'Operations API unavailable';
   const serviceTone: StatusTone = service.state === 'operational' ? 'success' : service.state === 'not_configured' ? 'muted' : 'error';
 
   return (
@@ -419,7 +419,7 @@ function SystemAnalyticsContent() {
                   </View>
                   <View style={styles.healthCopy}>
                     <Text style={[styles.healthTitle, { color: colors.text }]}>System services</Text>
-                    <Text style={[styles.healthSubtitle, { color: colors.textSecondary }]}>Database reporting is live and access-controlled.</Text>
+                    <Text style={[styles.healthSubtitle, { color: colors.textSecondary }]}>Supabase reporting is access-controlled; Operations API status is checked separately.</Text>
                   </View>
                   <StatusBadge label={serviceLabel} tone={serviceTone} />
                 </View>
@@ -429,7 +429,7 @@ function SystemAnalyticsContent() {
                     <Text selectable style={[styles.healthDetailValue, { color: colors.text }]}>{queryLatency ?? 0} ms</Text>
                   </View>
                   <View style={styles.healthDetail}>
-                    <Text style={[styles.healthDetailLabel, { color: colors.textSecondary }]}>API response</Text>
+                    <Text style={[styles.healthDetailLabel, { color: colors.textSecondary }]}>Operations API response</Text>
                     <Text selectable style={[styles.healthDetailValue, { color: colors.text }]}>{service.latencyMs === null ? '—' : `${service.latencyMs} ms`}</Text>
                   </View>
                   <View style={styles.healthDetail}>
@@ -442,7 +442,7 @@ function SystemAnalyticsContent() {
                   </View>
                 </View>
               </SurfaceCard>
-              {queueError ? <Text style={[styles.optionalNote, { color: colors.textSecondary }]}>{queueError} The core system analytics report remains available.</Text> : null}
+              {queueError ? <Text style={[styles.optionalNote, { color: colors.textSecondary }]}>{queueError} The core Supabase system analytics report remains available.</Text> : null}
 
               <View style={[styles.metricGrid, wide && styles.metricGridWide]}>
                 <OverviewMetric

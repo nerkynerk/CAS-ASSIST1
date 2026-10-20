@@ -172,7 +172,8 @@ export default function AuthLandingScreen({ onSelectCategory }: Props) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <Animated.View entering={HERO_ENTERING} style={[styles.content, wide && styles.contentWide]}>
-            <View style={styles.brandRow}>
+            <View style={styles.heroHeader}>
+              <View style={styles.brandRow}>
               <View style={[styles.brandMark, { backgroundColor: colors.primary }]}>
                 <AcademicIcon
                   name={{ ios: 'building.columns.fill', android: 'account_balance', web: 'account_balance' }}
@@ -180,20 +181,18 @@ export default function AuthLandingScreen({ onSelectCategory }: Props) {
                   size={22}
                 />
               </View>
-              <View>
-                <Text style={[styles.brandName, { color: colors.navy }]}>CAS Assist</Text>
-                <Text style={[styles.brandMeta, { color: colors.textSecondary }]}>College of Arts and Sciences</Text>
-              </View>
-            </View>
 
-            <View style={styles.heroCopy}>
-              <StatusBadge label="NEU academic services portal" tone="blue" />
+              </View>
+
+              <View style={styles.heroCopy}>
+              <StatusBadge label="NEU Academic Services Portal" tone="blue" />
               <Text style={[styles.welcomeTitle, { color: colors.navy }, wide && styles.welcomeTitleWide]}>
-                CAS-ASSIST <Text style={{ color: colors.primary }}>2.0</Text>
+                CAS-Assist
               </Text>
               <Text style={[styles.welcomeBody, { color: colors.textSecondary }]}>
-                The College of Arts and Sciences assistance, operations, and academic services platform — one desk for requests, queue numbers, documents, appointments, classroom-change notices, and an AI helpdesk grounded in approved CAS knowledge.
+                The College of Arts and Sciences assistance, operations, and academic services platform.  One desk for requests, queue numbers, documents, appointments, classroom-change notices, and an AI helpdesk grounded in approved CAS knowledge.
               </Text>
+              </View>
             </View>
 
             <View style={[styles.roleGrid, wide && styles.roleGridWide]}>
@@ -250,7 +249,8 @@ const styles = StyleSheet.create({
   scrollWide: { paddingVertical: Spacing.five },
   content: { width: '100%', maxWidth: 560, gap: Spacing.four },
   contentWide: { maxWidth: 1080 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  heroHeader: { width: '100%', maxWidth: 820, alignSelf: 'center', alignItems: 'center', gap: Spacing.three },
+  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   brandMark: {
     width: 48,
     height: 48,
@@ -261,10 +261,10 @@ const styles = StyleSheet.create({
   },
   brandName: { fontFamily: Fonts.sans, fontSize: 19, lineHeight: 24, fontWeight: '600', letterSpacing: -0.3 },
   brandMeta: { fontFamily: Fonts.sans, fontSize: TypeScale.caption, lineHeight: 17, fontWeight: '600' },
-  heroCopy: { gap: Spacing.two, maxWidth: 680 },
-  welcomeTitle: { fontFamily: Fonts.sans, fontSize: 36, lineHeight: 42, fontWeight: '600', letterSpacing: -0.8 },
+  heroCopy: { width: '100%', maxWidth: 680, alignItems: 'center', gap: Spacing.two },
+  welcomeTitle: { fontFamily: Fonts.sans, fontSize: 36, lineHeight: 42, fontWeight: '600', letterSpacing: -0.8, textAlign: 'center' },
   welcomeTitleWide: { fontSize: 48, lineHeight: 54, maxWidth: 760 },
-  welcomeBody: { fontFamily: Fonts.sans, fontSize: 16, lineHeight: 24, maxWidth: 620 },
+  welcomeBody: { fontFamily: Fonts.sans, fontSize: 16, lineHeight: 24, maxWidth: 620, textAlign: 'center' },
   roleGrid: { gap: Spacing.three },
   roleGridWide: { flexDirection: 'row', alignItems: 'stretch', gap: Spacing.three },
   roleCardShell: { flex: 1, minWidth: 0, ...Shadows.card },
