@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { allowRoles, requireAuth } from '../middleware/auth.js';
+import { allowRoles, requireAuth, requireVerifiedCas } from '../middleware/auth.js';
 import { adminSupabase } from '../supabase.js';
 import type { AuthenticatedRequest } from '../types.js';
 
 export const queueRouter = Router();
-queueRouter.use(requireAuth);
+queueRouter.use(requireAuth, requireVerifiedCas);
 
 queueRouter.get('/estimate', async (req, res) => {
   const user = (req as AuthenticatedRequest).authUser;

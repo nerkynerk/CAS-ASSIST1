@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { requireActive, requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireVerifiedCas } from '../middleware/auth.js';
 import { isConfidentMatch, rankKnowledge, type KnowledgeCandidate } from '../services/knowledge-retrieval.js';
 import { adminSupabase } from '../supabase.js';
 import type { AuthenticatedRequest } from '../types.js';
 
 export const aiRouter = Router();
-aiRouter.use(requireAuth, requireActive);
+aiRouter.use(requireAuth, requireVerifiedCas);
 
 const querySchema = z.object({
   query: z.string().trim().min(3).max(2000),

@@ -9,6 +9,7 @@ import AuthenticatedErrorBoundary from '@/components/authenticated-error-boundar
 import AuthLandingScreen from '@/components/auth/auth-landing-screen';
 import LoginScreen from '@/components/auth/login-screen';
 import RegisterScreen from '@/components/auth/register-screen';
+import VerificationPendingScreen from '@/components/auth/verification-pending-screen';
 import { Academic, FloatingChatButton } from '@/components/ui/academic-ui';
 import { AuthProvider, useAuth, type LoginCategory } from '@/context/auth';
 import { AppThemeProvider, useAppTheme } from '@/context/theme';
@@ -41,15 +42,11 @@ const styles = StyleSheet.create({
   },
 });
 
-// ── Auth overlay ──────────────────────────────────────────────
-// AppTabs stays mounted at all times so the Expo Router navigator
-// is never torn down. When there is no session we cover it with a
-// full-screen overlay. Signing out makes session null → overlay
-// appears. Signing in makes session non-null → overlay disappears.
+// Mount operational routes only after profile and CAS access checks.
 
 function PushSetup() {
   const { profile } = useAuth();
-  usePushNotifications(profile?.id);
+  usePushNotifications(profile?.hasActiveCasAccess ? profile.id : undefined);
   return null;
 }
 
@@ -63,6 +60,7 @@ function AuthenticatedWorkspace({
   resetRouteOnAuth: boolean;
 }) {
   const router = useRouter();
+  const { profile } = useAuth();
   const resetUserRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -76,7 +74,7 @@ function AuthenticatedWorkspace({
   return (
     <AuthenticatedErrorBoundary onSignOut={onSignOut}>
       <AppTabs key={userId} />
-      <FloatingChatButton />
+      {profile?.hasActiveCasAccess ? <FloatingChatButton /> : null}
       <PushSetup />
     </AuthenticatedErrorBoundary>
   );
@@ -134,6 +132,11 @@ function AppGate() {
   }
 
   if (session && profile) {
+    const hasKnownRole = ['student', 'faculty', 'staff', 'super_admin'].includes(profile.role);
+    const canReadHistory = profile.state === 'archived_read_only'
+      && profile.verification_status === 'verified'
+      && /^[^@\s]+@neu\.edu\.ph$/i.test(profile.email);
+    if (!hasKnownRole || (!profile.hasActiveCasAccess && !canReadHistory)) return <VerificationPendingScreen />;
     return <AuthenticatedWorkspace userId={session.user.id} onSignOut={signOut} resetRouteOnAuth={resetRouteOnAuth} />;
   }
 

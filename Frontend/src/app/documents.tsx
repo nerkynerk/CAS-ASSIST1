@@ -163,6 +163,7 @@ function DocumentsScreenContent() {
   }, [requests, search, statusFilter]);
 
   async function handleSubmit() {
+    if (!profile?.hasActiveCasAccess || submitting) return;
     setFormError(null);
     if (!docType) { setFormError('Please select a document type.'); return; }
     if (!purpose.trim()) { setFormError('Please state the purpose of your request.'); return; }
@@ -190,7 +191,7 @@ function DocumentsScreenContent() {
     }
   }
 
-  if (view === 'new') {
+  if (view === 'new' && profile?.hasActiveCasAccess) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <AppBackdrop />
@@ -281,7 +282,7 @@ function DocumentsScreenContent() {
           label="Student services"
           title="Documents"
           subtitle="Track official CAS document requests."
-          right={(
+          right={profile?.hasActiveCasAccess ? (
             <IconButton
               icon={{ ios: 'plus', android: 'add', web: 'add' }}
               onPress={() => setView('new')}
@@ -289,7 +290,7 @@ function DocumentsScreenContent() {
               bg="rgba(255,255,255,0.14)"
               color="#FFFFFF"
             />
-          )}
+          ) : <StatusBadge label="Read-only account" tone="warning" />}
         />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.legendRail}>

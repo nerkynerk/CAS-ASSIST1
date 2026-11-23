@@ -2,10 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { config } from '../config.js';
-import { allowRoles, requireActive, requireAuth } from '../middleware/auth.js';
+import { allowRoles, requireAuth, requireVerifiedCas } from '../middleware/auth.js';
 
 export const notificationsRouter = Router();
-notificationsRouter.use(requireAuth, allowRoles('staff', 'super_admin'), requireActive);
+notificationsRouter.use(requireAuth, requireVerifiedCas, allowRoles('staff', 'super_admin'));
 
 notificationsRouter.post('/send', async (req, res) => {
   const input = z.object({

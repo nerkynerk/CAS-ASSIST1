@@ -199,6 +199,7 @@ export default function FacultyDashboard() {
   }, [load]);
 
   async function handleRoomChange() {
+    if (!profile?.hasActiveCasAccess || posting) return;
     setRcError(null);
     const assignment = assignments.find(item => item.id === selectedAssignmentId);
     if (!assignment) {
@@ -346,7 +347,7 @@ export default function FacultyDashboard() {
             <Pressable
               style={({ pressed }) => [styles.primaryButton, { backgroundColor: theme.primary }, (pressed || posting) && styles.pressed]}
               onPress={handleRoomChange}
-              disabled={posting || assignments.length === 0}>
+              disabled={posting || assignments.length === 0 || !profile?.hasActiveCasAccess}>
               {posting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Publish notice</Text>}
             </Pressable>
           </View>
@@ -391,16 +392,17 @@ export default function FacultyDashboard() {
 
         <SectionHeader title="Faculty Actions" />
         <View style={dashboardActionGridStyles.grid}>
-          <DashboardActionCard
+          {profile?.hasActiveCasAccess ? <DashboardActionCard
             label="Log Room Change"
             caption="Notify students using an active assignment."
             size="wide"
             icon={{ ios: 'location', android: 'location_on', web: 'location_on' }}
             onPress={() => {
+              if (!profile?.hasActiveCasAccess) return;
               if (assignments.length === 1) selectAssignment(assignments[0]);
               setView('room-change');
             }}
-          />
+          /> : <StatusBadge label="Read-only account" tone="warning" />}
           <DashboardActionCard
             label="Department Updates"
             caption="Review published CAS announcements."

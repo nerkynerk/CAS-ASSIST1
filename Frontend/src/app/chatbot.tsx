@@ -138,7 +138,7 @@ function ChatbotScreenContent() {
 
   async function sendText(rawText: string) {
     const text = rawText.trim();
-    if (!text || sending) return;
+    if (!text || sending || !profile?.hasActiveCasAccess) return;
 
     setInput('');
     addMessage({ role: 'user', content: text });
@@ -177,7 +177,7 @@ function ChatbotScreenContent() {
   }
 
   async function sendFeedback(message: Message, helpful: boolean) {
-    if (!message.queryId || message.feedback) return;
+    if (!message.queryId || message.feedback || !profile?.hasActiveCasAccess) return;
     setFeedbackError(null);
     try {
       try {
@@ -318,7 +318,7 @@ function ChatbotScreenContent() {
 
 export default function ChatbotScreen() {
   return (
-    <RoleGuard allowed={['student', 'faculty', 'staff', 'super_admin']}>
+    <RoleGuard allowed={['student', 'faculty', 'staff', 'super_admin']} requireActive>
       <ChatbotScreenContent />
     </RoleGuard>
   );

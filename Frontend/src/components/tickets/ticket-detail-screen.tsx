@@ -121,6 +121,7 @@ function TicketDetailContent({ ticketId, showCreated }: { ticketId: string | und
 
   const userId = profile?.id ?? session?.user.id;
   const canManage = profile?.role === 'staff' || profile?.role === 'super_admin';
+  const canUpdate = canManage && profile?.hasActiveCasAccess === true;
   const isSuperAdmin = profile?.role === 'super_admin';
 
   const fetchTicket = useCallback(async () => {
@@ -218,19 +219,17 @@ function TicketDetailContent({ ticketId, showCreated }: { ticketId: string | und
   }
 
   async function advanceStatus() {
-    if (!ticket || !canManage) return;
+    if (!ticket || !canUpdate) return;
     const next = NEXT_STATUS[ticket.status];
     if (!next || updating) return;
 
     setActionError(null);
     setActionMessage(null);
     setUpdating(true);
-    const updates: Record<string, unknown> = { status: next };
-    if (next === 'resolved') updates.resolved_at = new Date().toISOString();
-    const { error } = await supabase
-      .from('advising_ticket_pipeline')
-      .update(updates)
-      .eq('id', ticket.id);
+    const { error } = await supabase.rpc('transition_advising_ticket_status', {
+      p_ticket_id: ticket.id,
+      p_status: next,
+    });
     setUpdating(false);
 
     if (error) {
@@ -402,7 +401,7 @@ function TicketDetailContent({ ticketId, showCreated }: { ticketId: string | und
               </View>
             </SurfaceCard>
 
-            {canManage ? (
+            {canUpdate ? (
               <SurfaceCard style={styles.panelCard} accent={ticket.status === 'action_required' ? 'error' : 'blue'}>
                 <Text style={[styles.sectionTitle, { color: colors.navy }]}>Authorized action</Text>
                 <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Only the existing next transition is available.</Text>

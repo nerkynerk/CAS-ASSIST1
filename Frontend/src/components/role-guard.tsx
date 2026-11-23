@@ -9,14 +9,16 @@ type Role = UserProfile['role'];
 
 export default function RoleGuard({
   allowed,
+  requireActive = false,
   children,
 }: {
   allowed: readonly Role[];
+  requireActive?: boolean;
   children: ReactNode;
 }) {
   const { profile } = useAuth();
 
-  if (!profile || !allowed.includes(profile.role)) {
+  if (!profile || !allowed.includes(profile.role) || (requireActive && !profile.hasActiveCasAccess)) {
     return (
       <View style={styles.container}>
         <AcademicIcon
@@ -25,7 +27,9 @@ export default function RoleGuard({
           size={42}
         />
         <Text style={styles.title}>Access restricted</Text>
-        <Text style={styles.message}>Your CAS Assist role does not have access to this section.</Text>
+        <Text style={styles.message}>{profile?.state === 'archived_read_only'
+          ? 'This CAS account is read-only. Previous authorized records remain available.'
+          : 'Your CAS Assist account does not have access to this section.'}</Text>
       </View>
     );
   }

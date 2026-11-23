@@ -74,6 +74,7 @@ function RoomUpdateCard({
   onAcknowledge: () => void;
 }) {
   const colors = useTheme();
+  const { profile } = useAuth();
   return (
     <SurfaceCard accent={acknowledged ? 'success' : 'error'} style={styles.roomCard}>
       <View style={styles.roomHeader}>
@@ -112,7 +113,7 @@ function RoomUpdateCard({
           />
           <Text style={[styles.ackStateText, { color: colors.success }]}>Acknowledged</Text>
         </View>
-      ) : (
+      ) : profile?.hasActiveCasAccess ? (
         <Pressable
           onPress={onAcknowledge}
           disabled={acknowledging}
@@ -123,7 +124,7 @@ function RoomUpdateCard({
             <Text style={styles.ackButtonText}>Acknowledge Change</Text>
           )}
         </Pressable>
-      )}
+      ) : <StatusBadge label="Read-only account" tone="warning" />}
     </SurfaceCard>
   );
 }
@@ -192,7 +193,8 @@ export default function UpdatesScreen() {
   const fetchRef = useRef<() => Promise<void>>(async () => {});
   const profileId = profile?.id;
   const isStudent = !profile || profile.role === 'student';
-  const canCreateAnnouncements = profile?.role === 'staff' || profile?.role === 'super_admin';
+  const canCreateAnnouncements = profile?.hasActiveCasAccess
+    && (profile.role === 'staff' || profile.role === 'super_admin');
 
   const fetchAnnouncements = useCallback(async () => {
     setError(null);
@@ -252,7 +254,7 @@ export default function UpdatesScreen() {
   }
 
   async function handleAcknowledge(id: string) {
-    if (!profile?.id || acknowledgingId) return;
+    if (!profile?.id || !profile.hasActiveCasAccess || acknowledgingId) return;
     setAckError(null);
     setAcknowledgingId(id);
     const { error: rpcError } = await supabase.rpc('acknowledge_room_change', {

@@ -218,6 +218,8 @@ function QueueFilterSelect({
 
 function AllTickets() {
   const router = useRouter();
+  const { profile } = useAuth();
+  const canUpdate = profile?.hasActiveCasAccess === true;
   const colors = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,12 +252,13 @@ function AllTickets() {
 
   async function advance(ticket: Ticket) {
     const next = NEXT_STATUS[ticket.status];
-    if (!next) return;
+    if (!next || !canUpdate) return;
     setActionError(null);
     setUpdating(ticket.id);
-    const updates: Record<string, unknown> = { status: next };
-    if (next === 'resolved') updates.resolved_at = new Date().toISOString();
-    const { error } = await supabase.from('advising_ticket_pipeline').update(updates).eq('id', ticket.id);
+    const { error } = await supabase.rpc('transition_advising_ticket_status', {
+      p_ticket_id: ticket.id,
+      p_status: next,
+    });
     setUpdating(null);
     if (error) {
       setActionError('That status change was not accepted. Refresh and try again.');
@@ -439,7 +442,7 @@ function AllTickets() {
               <Text style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>{ticket.description}</Text>
               <View style={styles.footerRow}>
                 <Text style={[styles.itemMeta, { color: colors.textSecondary }]}>Filed {formatDate(ticket.created_at)} · Updated {formatDate(ticket.updated_at)}</Text>
-                {next ? (
+                {next && canUpdate ? (
                   <Pressable
                     style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
                     onPress={event => {
@@ -465,6 +468,8 @@ function AllTickets() {
 }
 
 function PostAnnouncement({ adminId }: { adminId: string }) {
+  const { profile } = useAuth();
+  const canUpdate = profile?.hasActiveCasAccess === true;
   const colors = useTheme();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -516,6 +521,7 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
   }
 
   async function handlePost() {
+    if (!canUpdate) return;
     setError(null);
     if (!title.trim() || !body.trim()) {
       setError('Title and body are required.');
@@ -607,7 +613,7 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
       <Pressable
         style={({ pressed }) => [styles.primaryButton, (pressed || submitting) && styles.pressed]}
         onPress={handlePost}
-        disabled={submitting}>
+        disabled={submitting || !canUpdate}>
         {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Post Announcement</Text>}
       </Pressable>
 
@@ -681,6 +687,8 @@ function PostAnnouncement({ adminId }: { adminId: string }) {
 }
 
 function DocRequests() {
+  const { profile } = useAuth();
+  const canUpdate = profile?.hasActiveCasAccess === true;
   const colors = useTheme();
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -721,7 +729,7 @@ function DocRequests() {
 
   async function advance(doc: DocRow) {
     const next = DOC_NEXT[doc.status];
-    if (!next) return;
+    if (!next || !canUpdate) return;
     setError(null);
     setNotice(null);
     setUpdating(doc.id);
@@ -739,6 +747,7 @@ function DocRequests() {
   }
 
   async function reject(doc: DocRow) {
+    if (!canUpdate) return;
     setError(null);
     setNotice(null);
     setUpdating(`${doc.id}-reject`);
@@ -830,13 +839,13 @@ function DocRequests() {
                     <Pressable
                       style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
                       onPress={() => advance(doc)}
-                      disabled={isUpdating}>
+                      disabled={isUpdating || !canUpdate}>
                       <Text style={styles.smallButtonText}>{DOC_STATUS_LABEL[next]}</Text>
                     </Pressable>
                     <Pressable
                       style={({ pressed }) => [styles.rejectButton, pressed && styles.pressed]}
                       onPress={() => reject(doc)}
-                      disabled={isUpdating}>
+                      disabled={isUpdating || !canUpdate}>
                       <Text style={styles.rejectButtonText}>Reject</Text>
                     </Pressable>
                   </View>
@@ -1142,6 +1151,7 @@ export default function AdminScreen() {
             {profile?.role === 'super_admin' ? 'Management' : 'Operations'}
           </Text>
           <Text style={[styles.screenSub, { color: colors.textSecondary }]}>CAS service tools and request processing</Text>
+          {profile?.state === 'archived_read_only' ? <Text style={[styles.screenSub, { color: colors.textSecondary }]}>Read-only account. Operational changes are disabled.</Text> : null}
         </View>
         <StatusBadge label={profile?.role === 'super_admin' ? 'Super Admin' : 'Staff'} tone={profile?.role === 'super_admin' ? 'error' : 'success'} />
       </View>

@@ -262,12 +262,14 @@ function NewTicketForm({
   userId: string | undefined;
 }) {
   const colors = useTheme();
+  const { profile } = useAuth();
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   async function handleSubmit() {
+    if (!profile?.hasActiveCasAccess || submitting) return;
     setFormError(null);
     if (!category) { setFormError('Please select a category.'); return; }
     if (!description.trim()) { setFormError('Please describe your concern.'); return; }
@@ -504,7 +506,7 @@ function TicketsScreenContent() {
     }
   }
 
-  if (view === 'new') {
+  if (view === 'new' && profile?.hasActiveCasAccess) {
     return (
       <NewTicketForm
         onBack={() => setView('list')}
@@ -526,7 +528,7 @@ function TicketsScreenContent() {
           title="My Requests"
           subtitle="Track your assistance queue and request history."
           stackOnMobile
-          right={(
+          right={profile?.hasActiveCasAccess ? (
             <ActionButton
               label="New Request"
               icon={{ ios: 'plus', android: 'add', web: 'add' }}
@@ -534,7 +536,7 @@ function TicketsScreenContent() {
               accessibilityLabel="Create a new request"
               style={styles.newRequestButton}
             />
-          )}
+          ) : <StatusBadge label="Read-only account" tone="warning" />}
         />
 
         {updateAlert ? (

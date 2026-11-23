@@ -66,7 +66,7 @@ export default function ProfileScreen() {
   const role = profile?.role ?? 'student';
   const currentDisplayName = displayName.trim() || profile?.display_name || '';
   const firstName = currentDisplayName.split(' ')[0] || 'there';
-  const canEdit = profile?.state !== 'archived_read_only';
+  const canEdit = profile?.hasActiveCasAccess === true;
 
   async function handleSave() {
     if (!displayName.trim()) { setSaveError('Name cannot be empty.'); return; }

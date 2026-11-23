@@ -182,6 +182,7 @@ function RoomChangeCard({
   onAcknowledge: () => void;
 }) {
   const colors = useTheme();
+  const { profile } = useAuth();
   const courseTitle = [item.subject_code, item.section_code].filter(Boolean).join(' - ') || 'Class Update';
 
   return (
@@ -238,7 +239,7 @@ function RoomChangeCard({
           />
           <Text style={[styles.ackDoneText, { color: colors.success }]}>Acknowledged</Text>
         </View>
-      ) : (
+      ) : profile?.hasActiveCasAccess ? (
         <Pressable
           onPress={onAcknowledge}
           disabled={acknowledging}
@@ -253,7 +254,7 @@ function RoomChangeCard({
             <Text style={styles.ackButtonText}>Acknowledge Change</Text>
           )}
         </Pressable>
-      )}
+      ) : <StatusBadge label="Read-only account" tone="warning" />}
     </View>
   );
 }
@@ -301,7 +302,7 @@ export default function StudentDashboard() {
   }, [profileId]);
 
   async function handleAcknowledge(spatialLogId: string) {
-    if (!profile?.id || acknowledgingId) return;
+    if (!profile?.id || !profile.hasActiveCasAccess || acknowledgingId) return;
     setAcknowledgingId(spatialLogId);
     const { error } = await supabase.rpc('acknowledge_room_change', {
       p_spatial_log_id: spatialLogId,
@@ -479,12 +480,12 @@ export default function StudentDashboard() {
             icon={{ ios: 'questionmark.circle', android: 'info', web: 'info' }}
             onPress={() => router.navigate('/faq')}
           />
-          <DashboardActionCard
+          {profile?.hasActiveCasAccess ? <DashboardActionCard
             label="AI Assistant"
             caption="Ask the existing CAS assistant."
             icon={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
             onPress={() => router.navigate('/chatbot')}
-          />
+          /> : null}
           <DashboardActionCard
             label="Profile"
             caption="Review your account and appearance settings."

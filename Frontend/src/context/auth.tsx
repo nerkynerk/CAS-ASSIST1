@@ -12,6 +12,9 @@ export interface UserProfile {
   student_number: string | null;
   role: 'student' | 'faculty' | 'staff' | 'super_admin';
   state: 'active' | 'archived_read_only';
+  verification_status: 'pending' | 'verified' | 'rejected';
+  hasActiveCasAccess: boolean;
+  accessError: string | null;
 }
 
 export type LoginCategory = 'student' | 'institutional';
@@ -22,6 +25,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isProfileLoading: boolean;
   profileError: string | null;
+  refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string, category?: LoginCategory) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
@@ -80,14 +84,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data, error } = await supabase
           .from('users_account_registry')
-          .select('id, email, display_name, student_number, role, state')
+          .select('id, email, display_name, student_number, role, state, verification_status')
           .eq('id', userId)
           .maybeSingle();
         if (error) return { ok: false, message: safeProfileError(error) };
         if (!data) {
           return { ok: false, message: 'Your account is signed in, but no CAS Assist profile was found. Please contact an administrator.' };
         }
-        return { ok: true, profile: data as UserProfile };
+        let hasActiveCasAccess = false;
+        let accessError: string | null = null;
+        if (data.state === 'active' && data.verification_status === 'verified') {
+          const access = await supabase.rpc('has_active_cas_access');
+          hasActiveCasAccess = !access.error && access.data === true;
+          if (access.error) accessError = 'Your CAS access could not be checked. Check your connection and refresh your status.';
+        }
+        return { ok: true, profile: { ...data, hasActiveCasAccess, accessError } as UserProfile };
       } catch {
         return { ok: false, message: 'We could not load your CAS Assist profile. Check your connection and try signing in again.' };
       }
@@ -251,9 +262,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function refreshProfile(): Promise<void> {
+    if (session) await loadAuthenticatedProfile(session);
+  }
+
   return (
     <AuthContext.Provider
-      value={{ session, profile, isLoading, isProfileLoading, profileError, signIn, signUp, signOut }}>
+      value={{ session, profile, isLoading, isProfileLoading, profileError, refreshProfile, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
